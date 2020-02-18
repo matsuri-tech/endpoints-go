@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/iancoleman/orderedmap"
 )
@@ -47,7 +48,7 @@ func (e *endpoints) generate(filename string) error {
 			Path string `json:"path"`
 			Desc string `json:"desc"`
 		}{
-			Path: v.Path,
+			Path: strings.TrimPrefix(v.Path, "/"),
 			Desc: v.Desc,
 		})
 	}
