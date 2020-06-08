@@ -18,13 +18,29 @@ ew.AddEnv(endpoints.Env{
         Dev: "https://dev.hoge.com",
         Prod: "https://hoge.com",
     },
+    Version: "v2",
+    Domain: endpoints.Domain{
+        Local: "http://localhost:8000",
+        LocalDev: "https://local-dev.hoge.com",
+        Dev: "https://v2.dev.hoge.com",
+        Prod: "https://v2.hoge.com",
+    }
 })
 
 // エンドポイントの追加
-ew.GET("/user", userHandler.GetUsers, endpoints.Desc{
+// Versionsが指定されていない場合、全てのバージョンに含まれる
+ew.GET("/users", userHandler.GetUsers, endpoints.Desc{
     Name: "userIndex",
     Query: "page=2&itemsPerPage=50",
     Desc: "ユーザ一覧を取得する"
+})
+
+// このエンドポイントはv2にのみ含まれる
+ew.GET("/messages", messageHandler.GetMessages, endpoints.Desc{
+    Name: "messageIndex",
+    Query: "page=2&itemsPerPage=50",
+    Desc: "メッセージ一覧を取得する",
+    Versions: endpoints.Versions{"v2"},
 })
 
 // グループの作成とエンドポイントの追加
