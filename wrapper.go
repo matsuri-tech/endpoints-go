@@ -31,7 +31,7 @@ func (w *EchoWrapper) AddEnv(env ...Env) {
 	w.endpoints.addEnv(env...)
 }
 
-// AddTarget は、対象とするフロントエンドを表す識別子
+// AddFrontends は、対象とするフロントエンドを表す識別子
 // (e.g. "guest", "manager", "admin)
 // を追加する
 func (w *EchoWrapper) AddFrontends(frontends ...string) {
