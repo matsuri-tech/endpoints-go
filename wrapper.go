@@ -97,6 +97,8 @@ func (g *GroupWrapper) AddAPI(path string, desc Desc) {
 		Name: desc.Name,
 		Path: g.prefix + path + desc.query(),
 		Desc: desc.Desc,
+		Versions: desc.Versions,
+		Frontends: desc.Frontends,
 	})
 }
 
@@ -129,6 +131,8 @@ type Desc struct {
 	Name  string
 	Query string
 	Desc  string
+	Versions []string
+	Frontends []string
 }
 
 func (d *Desc) query() string {
