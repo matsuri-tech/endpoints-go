@@ -16,9 +16,11 @@ type EchoWrapper struct {
 // ただし、それによりエンドポイントを生やす場合は、
 // 当該エンドポイントの情報をGroupWrapper.AddAPI()により追加すること。
 type GroupWrapper struct {
-	Group  *echo.Group
-	prefix string
-	parent *EchoWrapper
+	Group     *echo.Group
+	prefix    string
+	versions  []string
+	frontends []string
+	parent    *EchoWrapper
 }
 
 func NewEchoWrapper(e *echo.Echo) *EchoWrapper {
@@ -80,11 +82,22 @@ func (w *EchoWrapper) DELETE(path string, h echo.HandlerFunc, desc Desc, m ...ec
 }
 
 func (w *EchoWrapper) Group(prefix string, m ...echo.MiddlewareFunc) *GroupWrapper {
+	return w.GroupWithVersionsAndFrontends(prefix, nil, nil, m...)
+}
+
+func (w *EchoWrapper) GroupWithVersionsAndFrontends(
+	prefix string,
+	versions []string,
+	frontends []string,
+	m ...echo.MiddlewareFunc,
+) *GroupWrapper {
 	g := w.Echo.Group(prefix, m...)
 	return &GroupWrapper{
-		Group:  g,
-		prefix: prefix,
-		parent: w,
+		Group:     g,
+		prefix:    prefix,
+		versions:  versions,
+		frontends: frontends,
+		parent:    w,
 	}
 }
 
@@ -94,11 +107,11 @@ func (w *EchoWrapper) Group(prefix string, m ...echo.MiddlewareFunc) *GroupWrapp
 // に限り、直接呼んでよい
 func (g *GroupWrapper) AddAPI(path string, desc Desc) {
 	g.parent.endpoints.addAPI(API{
-		Name: desc.Name,
-		Path: g.prefix + path + desc.query(),
-		Desc: desc.Desc,
-		Versions: desc.Versions,
-		Frontends: desc.Frontends,
+		Name:      desc.Name,
+		Path:      g.prefix + path + desc.query(),
+		Desc:      desc.Desc,
+		Versions:  append(g.versions, desc.Versions...),
+		Frontends: append(g.frontends, desc.Frontends...),
 	})
 }
 
@@ -128,10 +141,10 @@ func (g *GroupWrapper) DELETE(path string, h echo.HandlerFunc, desc Desc, m ...e
 }
 
 type Desc struct {
-	Name  string
-	Query string
-	Desc  string
-	Versions []string
+	Name      string
+	Query     string
+	Desc      string
+	Versions  []string
 	Frontends []string
 }
 
@@ -141,4 +154,3 @@ func (d *Desc) query() string {
 	}
 	return "?" + d.Query
 }
-
