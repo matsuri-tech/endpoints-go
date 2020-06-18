@@ -81,6 +81,19 @@ articles.POST("/", articleHandler.CreateArticle, endpoints.Desc{
     Desc: "記事を新規作成する",
 })
 
+// グループ単位でVersionsやFrontendsを指定することもできる
+comments := ew.GroupWithVersionsAndFrontends(
+    "/comments",
+    []string{"v2"},
+    []string{"manager"},
+)
+// このエンドポイントは"v2", "manager-v2"のみに含まれる
+comments.POST("/", commentHandler.CreateComment, endpoints.Desc{
+	Name: "createComment",
+    Query: "",
+    Desc: "コメントを新規作成する",
+})
+
 // .endpoints.jsonファイルの出力
 if err := ew.Generate(".endpoints.json"); err != nil {
     log.Printf("failed to generate endpoints file: %v", err)
