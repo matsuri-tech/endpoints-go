@@ -44,11 +44,12 @@ func (w *EchoWrapper) AddFrontends(frontends ...string) {
 // ただし、wrapされたEchoを直接使ってエンドポイントを生やす場合
 // （EchoWrapperが対応していないメソッドを使う場合など）
 // に限り、直接呼んでよい
-func (w *EchoWrapper) AddAPI(path string, desc Desc) {
+func (w *EchoWrapper) AddAPI(path string, desc Desc, method string) {
 	w.endpoints.addAPI(API{
-		Name: desc.Name,
-		Path: path + desc.query(),
-		Desc: desc.Desc,
+		Name:   desc.Name,
+		Path:   path + desc.query(),
+		Desc:   desc.Desc,
+		Method: method,
 	})
 }
 
@@ -57,27 +58,27 @@ func (w *EchoWrapper) Generate(filename string) error {
 }
 
 func (w *EchoWrapper) GET(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	w.AddAPI(path, desc)
+	w.AddAPI(path, desc, "GET")
 	return w.Echo.GET(path, h, m...)
 }
 
 func (w *EchoWrapper) POST(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	w.AddAPI(path, desc)
+	w.AddAPI(path, desc, "POST")
 	return w.Echo.POST(path, h, m...)
 }
 
 func (w *EchoWrapper) PUT(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	w.AddAPI(path, desc)
+	w.AddAPI(path, desc, "PUT")
 	return w.Echo.PUT(path, h, m...)
 }
 
 func (w *EchoWrapper) PATCH(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	w.AddAPI(path, desc)
+	w.AddAPI(path, desc, "PATCH")
 	return w.Echo.PATCH(path, h, m...)
 }
 
 func (w *EchoWrapper) DELETE(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	w.AddAPI(path, desc)
+	w.AddAPI(path, desc, "DELETE")
 	return w.Echo.DELETE(path, h, m...)
 }
 
@@ -105,38 +106,39 @@ func (w *EchoWrapper) GroupWithVersionsAndFrontends(
 // ただし、wrapされた*echo.Groupを直接使ってエンドポイントを生やす場合
 // （GroupWrapperが対応していないメソッドを使う場合など）
 // に限り、直接呼んでよい
-func (g *GroupWrapper) AddAPI(path string, desc Desc) {
+func (g *GroupWrapper) AddAPI(path string, desc Desc, method string) {
 	g.parent.endpoints.addAPI(API{
 		Name:      desc.Name,
 		Path:      g.prefix + path + desc.query(),
 		Desc:      desc.Desc,
+		Method:    method,
 		Versions:  append(g.versions, desc.Versions...),
 		Frontends: append(g.frontends, desc.Frontends...),
 	})
 }
 
 func (g *GroupWrapper) GET(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	g.AddAPI(path, desc)
+	g.AddAPI(path, desc, "GET")
 	return g.Group.GET(path, h, m...)
 }
 
 func (g *GroupWrapper) POST(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	g.AddAPI(path, desc)
+	g.AddAPI(path, desc, "POST")
 	return g.Group.POST(path, h, m...)
 }
 
 func (g *GroupWrapper) PUT(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	g.AddAPI(path, desc)
+	g.AddAPI(path, desc, "PUT")
 	return g.Group.PUT(path, h, m...)
 }
 
 func (g *GroupWrapper) PATCH(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	g.AddAPI(path, desc)
+	g.AddAPI(path, desc, "PATCH")
 	return g.Group.PATCH(path, h, m...)
 }
 
 func (g *GroupWrapper) DELETE(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	g.AddAPI(path, desc)
+	g.AddAPI(path, desc, "DELETE")
 	return g.Group.DELETE(path, h, m...)
 }
 
