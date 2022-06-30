@@ -77,11 +77,13 @@ func (e *endpoints) generateAPIList(version string) *orderedmap.OrderedMap {
 		// v.Versionsが定義されていない場合は全てのバージョンに含まれるものとして扱う
 		if len(v.Versions) == 0 || v.Versions.Includes(version) {
 			apis.Set(v.Name, struct {
-				Path string `json:"path"`
-				Desc string `json:"desc"`
+				Path   string `json:"path"`
+				Desc   string `json:"desc"`
+				Method string `json:"method"`
 			}{
-				Path: strings.TrimPrefix(v.Path, "/"),
-				Desc: v.Desc,
+				Path:   strings.TrimPrefix(v.Path, "/"),
+				Desc:   v.Desc,
+				Method: v.Method,
 			})
 		}
 	}
@@ -96,11 +98,13 @@ func (e *endpoints) generateAPIListByFrontend(version, frontend string) *ordered
 			// v.Targetsが定義されていない場合は全てのフロントエンドに含まれるものとして扱う
 			if len(v.Frontends) == 0 || v.Frontends.Includes(frontend) {
 				apis.Set(v.Name, struct {
-					Path string `json:"path"`
-					Desc string `json:"desc"`
+					Path   string `json:"path"`
+					Desc   string `json:"desc"`
+					Method string `json:"method"`
 				}{
-					Path: strings.TrimPrefix(v.Path, "/"),
-					Desc: v.Desc,
+					Path:   strings.TrimPrefix(v.Path, "/"),
+					Desc:   v.Desc,
+					Method: v.Method,
 				})
 			}
 		}
@@ -121,9 +125,10 @@ type Domain struct {
 }
 
 type API struct {
-	Name     string
-	Path     string
-	Desc     string
+	Name   string
+	Path   string
+	Desc   string
+	Method string
 
 	// バージョン番号 e.g. "v1", "v2"
 	// 指定がない場合、すべてのバージョンに含むものとみなす
