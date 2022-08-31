@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/getkin/kin-openapi/openapi3"
+	"gopkg.in/yaml.v3"
 	"io"
+	"net/http"
 	"os"
 	"strings"
 
@@ -65,6 +68,156 @@ func (e *endpoints) generate(filename string) error {
 		return err
 	}
 	if _, err := io.Copy(file, bytes.NewReader(unescaped)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+type OpenApiGeneratorConfig struct {
+	Title        string
+	Desc         string
+	TagsByPrefix []struct {
+		Prefix string
+		Tag    string
+	}
+}
+
+func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openapi3.T, error) {
+	servers := openapi3.Servers{}
+	for _, v := range e.env {
+		servers = append(servers, &openapi3.Server{
+			URL:         v.Domain.Local,
+			Description: fmt.Sprintf("%v at local", v.Version),
+			Variables:   nil,
+		})
+		servers = append(servers, &openapi3.Server{
+			URL:         v.Domain.Dev,
+			Description: fmt.Sprintf("%v at dev", v.Version),
+			Variables:   nil,
+		})
+		servers = append(servers, &openapi3.Server{
+			URL:         v.Domain.Prod,
+			Description: fmt.Sprintf("%v at prod", v.Version),
+			Variables:   nil,
+		})
+	}
+
+	paths := openapi3.Paths{}
+	for _, api := range e.api {
+		item := &openapi3.PathItem{}
+
+		// normalize path
+		path := api.Path
+		if !strings.HasPrefix(path, "/") {
+			path = "/" + api.Path
+		}
+
+		tags := []string{}
+		for _, c := range config.TagsByPrefix {
+			if strings.HasPrefix(path, c.Prefix) {
+				tags = append(tags, c.Tag)
+			}
+		}
+
+		operation := openapi3.Operation{
+			Tags:        tags,
+			Summary:     api.Name,
+			Description: api.Desc,
+			OperationID: api.Name,
+			Parameters:  openapi3.Parameters{},
+			RequestBody: nil,
+			Responses: openapi3.Responses{
+				"200": &openapi3.ResponseRef{},
+			},
+			Callbacks:    nil,
+			Deprecated:   false,
+			Security:     nil,
+			Servers:      nil,
+			ExternalDocs: nil,
+		}
+
+		if api.Method == http.MethodGet {
+			item.Get = &operation
+		} else if api.Method == http.MethodPost {
+			item.Post = &operation
+		} else if api.Method == http.MethodPut {
+			item.Post = &operation
+		} else if api.Method == http.MethodDelete {
+			item.Post = &operation
+		} else if api.Method == http.MethodPatch {
+			item.Post = &operation
+		}
+
+		paths[path] = item
+	}
+
+	tags := openapi3.Tags{}
+	for _, c := range config.TagsByPrefix {
+		tags = append(tags, &openapi3.Tag{
+			Name:        c.Tag,
+			Description: c.Tag,
+		})
+	}
+
+	schema := openapi3.T{
+		ExtensionProps: openapi3.ExtensionProps{},
+		OpenAPI:        "3.0.0",
+		Components:     openapi3.Components{},
+		Info: &openapi3.Info{
+			Title:       config.Title,
+			Description: config.Desc,
+		},
+		Paths:    paths,
+		Security: nil,
+		Servers:  servers,
+		Tags:     tags,
+	}
+
+	return schema, nil
+}
+
+func (e *endpoints) generateOpenApiJson(filename string, config OpenApiGeneratorConfig) error {
+	schema, err := e.generateOpenApiSchema(config)
+	if err != nil {
+		return err
+	}
+
+	bs, err := schema.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(filename, bs, 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *endpoints) generateOpenApiYaml(filename string, config OpenApiGeneratorConfig) error {
+	schema, err := e.generateOpenApiSchema(config)
+	if err != nil {
+		return err
+	}
+
+	jbs, err := schema.MarshalJSON()
+	if err != nil {
+		return err
+	}
+
+	m := make(map[string]interface{})
+	// go-yamlはJSONもunmarshalできる
+	if err := yaml.Unmarshal(jbs, &m); err != nil {
+		return err
+	}
+
+	bs, err := yaml.Marshal(&m)
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(filename, bs, 0644); err != nil {
 		return err
 	}
 
