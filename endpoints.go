@@ -81,6 +81,7 @@ type OpenApiGeneratorConfig struct {
 		Prefix string
 		Tag    string
 	}
+	AuthHeader string
 }
 
 func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openapi3.T, error) {
@@ -160,9 +161,11 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 					},
 				},
 			},
-			Callbacks:    nil,
-			Deprecated:   false,
-			Security:     nil,
+			Callbacks:  nil,
+			Deprecated: false,
+			Security: &openapi3.SecurityRequirements{
+				{"auth": []string{}},
+			},
 			Servers:      nil,
 			ExternalDocs: nil,
 		}
@@ -183,12 +186,12 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 			item.Post = &operation
 			operation.RequestBody = &requestBodyAny
 		} else if api.Method == http.MethodPut {
-			item.Post = &operation
+			item.Put = &operation
 			operation.RequestBody = &requestBodyAny
 		} else if api.Method == http.MethodDelete {
-			item.Post = &operation
+			item.Delete = &operation
 		} else if api.Method == http.MethodPatch {
-			item.Post = &operation
+			item.Patch = &operation
 			operation.RequestBody = &requestBodyAny
 		}
 
@@ -206,13 +209,23 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 	schema := openapi3.T{
 		ExtensionProps: openapi3.ExtensionProps{},
 		OpenAPI:        "3.0.0",
-		Components:     openapi3.Components{},
+		Components: openapi3.Components{
+			SecuritySchemes: openapi3.SecuritySchemes{
+				"auth": &openapi3.SecuritySchemeRef{
+					Value: &openapi3.SecurityScheme{
+						Type: "apiKey",
+						Name: config.AuthHeader,
+						In:   "header",
+					},
+				},
+			},
+		},
 		Info: &openapi3.Info{
 			Title:       config.Title,
 			Description: config.Desc,
 		},
 		Paths:    paths,
-		Security: nil,
+		Security: openapi3.SecurityRequirements{},
 		Servers:  servers,
 		Tags:     tags,
 	}
