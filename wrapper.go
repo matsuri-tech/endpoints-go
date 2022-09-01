@@ -57,6 +57,14 @@ func (w *EchoWrapper) Generate(filename string) error {
 	return w.endpoints.generate(filename)
 }
 
+func (w *EchoWrapper) GenerateOpenApiJson(filename string, config OpenApiGeneratorConfig) error {
+	return w.endpoints.generateOpenApiJson(filename, config)
+}
+
+func (w *EchoWrapper) GenerateOpenApi(filename string, config OpenApiGeneratorConfig) error {
+	return w.endpoints.generateOpenApiYaml(filename, config)
+}
+
 func (w *EchoWrapper) GET(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	w.AddAPI(path, desc, "GET")
 	return w.Echo.GET(path, h, m...)
