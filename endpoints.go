@@ -5,13 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/iancoleman/orderedmap"
 	"gopkg.in/yaml.v3"
 	"io"
 	"net/http"
 	"os"
 	"strings"
-
-	"github.com/iancoleman/orderedmap"
 )
 
 type endpoints struct {
