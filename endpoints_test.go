@@ -1,21 +1,26 @@
 package endpoints
 
-import "testing"
+import (
+	"github.com/iancoleman/orderedmap"
+	"reflect"
+	"testing"
+)
 
-func Test_endpoints_generate(t *testing.T) {
+func Test_endpoints_generateAPIListByFrontend(t *testing.T) {
 	type fields struct {
 		env       []Env
 		frontends []string
 		api       []API
 	}
 	type args struct {
-		filename string
+		version  string
+		frontend string
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		args    args
-		wantErr bool
+		name   string
+		fields fields
+		args   args
+		want   *orderedmap.OrderedMap
 	}{
 		// TODO: Add test cases.
 	}
@@ -26,8 +31,8 @@ func Test_endpoints_generate(t *testing.T) {
 				frontends: tt.fields.frontends,
 				api:       tt.fields.api,
 			}
-			if err := e.generate(tt.args.filename); (err != nil) != tt.wantErr {
-				t.Errorf("generate() error = %v, wantErr %v", err, tt.wantErr)
+			if got := e.generateAPIListByFrontend(tt.args.version, tt.args.frontend); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("generateAPIListByFrontend() = %v, want %v", got, tt.want)
 			}
 		})
 	}
