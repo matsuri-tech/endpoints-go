@@ -18,6 +18,7 @@ ew.AddEnv(
             LocalDev: "https://local-dev.hoge.com",
             Dev: "https://dev.hoge.com",
             Prod: "https://hoge.com",
+        },
     },
     endpoints.Env{
         Version: "v2",

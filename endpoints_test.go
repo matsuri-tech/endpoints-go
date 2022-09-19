@@ -22,7 +22,34 @@ func Test_endpoints_generateAPIListByFrontend(t *testing.T) {
 		args   args
 		want   *orderedmap.OrderedMap
 	}{
-		// TODO: Add test cases.
+		{
+			name: "正常系",
+			fields: fields{
+				env: []Env{
+					{
+						Version: "v1",
+						Domain: Domain{
+							Local:    "http://localhost:8000",
+							LocalDev: "https://local-dev.hoge.com",
+							Dev:      "https://v2.dev.hoge.com",
+							Prod:     "https://v2.hoge.com",
+						},
+					},
+				},
+				frontends: []string{"web", "admin"},
+				api: []API{
+					{
+						Name:   "GetMatsuriListingOwner",
+						Path:   "/api/v1/matsuri_listing_owner/{id}",
+						Desc:   "マツリリストオーナーを取得する",
+						Method: "GET",
+						Versions: Versions{
+							"v1",
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
