@@ -1,24 +1,94 @@
 package endpoints
 
 import (
-	"reflect"
-	"testing"
-
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/iancoleman/orderedmap"
 	"github.com/labstack/gommon/log"
+	"reflect"
+	"testing"
 )
 
+type fields struct {
+	env       []Env
+	frontends []string
+	api       []API
+}
+type args struct {
+	version  string
+	frontend string
+}
+
+// m2m-coreでデバッグした実値
+var m2mCoreAPIListRealValue = []API{
+	{
+		Name:   "GetMatsuriListingOwner",
+		Path:   "/api/v1/matsuri_listing_owner/{id}",
+		Desc:   "マツリリストオーナーを取得する",
+		Method: "GET",
+		Versions: Versions{
+			"v1",
+		},
+	},
+	{
+		Name:   "healthCheck",
+		Path:   "/api/v1/health_check",
+		Desc:   "ヘルスチェック",
+		Method: "GET",
+	},
+	{
+		Name:   "updateOwnerHistory",
+		Path:   "owners/ownerHistory/:id/",
+		Desc:   "ownerHistoryIdを使って該当のオーナー履歴を更新する",
+		Method: "PATCH",
+	},
+	{
+		Name:   "deleteOwnerHistory",
+		Path:   "owners/ownerHistory/:id/",
+		Desc:   "指定idのオーナー履歴を削除する",
+		Method: "DELETE",
+	},
+	{
+		Name: "findById",
+		Path: "owners/ownerHistory/:id/",
+		// ↓なぜか文字化けしてた
+		//Desc:   "ownerHistoryIdを使って管理しているリスティングのオーナー履歴一覧を取得する",
+		Desc:   "ownerHistoryIdを使って管理しているlist一覧を取得",
+		Method: "GET",
+	},
+	{
+		Name:   "findAllByListingId",
+		Path:   "owners/listings/:listingId/ownerHistories?listingId=xxx",
+		Desc:   "listingIdを使って管理しているリスティングのオーナー履歴一覧を取得する",
+		Method: "GET",
+	},
+}
+var normalTestCaseFieldStruct = fields{
+	env: []Env{
+		{
+			Version: "v1",
+			Domain: Domain{
+				Local:    "http://localhost:8000",
+				LocalDev: "https://local-dev.hoge.com",
+				Dev:      "https://v2.dev.hoge.com",
+				Prod:     "https://v2.hoge.com",
+			},
+		},
+	},
+	frontends: []string{"web", "admin"},
+	api: []API{
+		{
+			Name:   "GetMatsuriListingOwner",
+			Path:   "/api/v1/matsuri_listing_owner/{id}",
+			Desc:   "マツリリストオーナーを取得する",
+			Method: "GET",
+			Versions: Versions{
+				"v1",
+			},
+		},
+	},
+}
+
 func Test_endpoints_generateAPIListByFrontend(t *testing.T) {
-	type fields struct {
-		env       []Env
-		frontends []string
-		api       []API
-	}
-	type args struct {
-		version  string
-		frontend string
-	}
 	tests := []struct {
 		name   string
 		fields fields
@@ -26,32 +96,8 @@ func Test_endpoints_generateAPIListByFrontend(t *testing.T) {
 		want   *orderedmap.OrderedMap
 	}{
 		{
-			name: "正常系",
-			fields: fields{
-				env: []Env{
-					{
-						Version: "v1",
-						Domain: Domain{
-							Local:    "http://localhost:8000",
-							LocalDev: "https://local-dev.hoge.com",
-							Dev:      "https://v2.dev.hoge.com",
-							Prod:     "https://v2.hoge.com",
-						},
-					},
-				},
-				frontends: []string{"web", "admin"},
-				api: []API{
-					{
-						Name:   "GetMatsuriListingOwner",
-						Path:   "/api/v1/matsuri_listing_owner/{id}",
-						Desc:   "マツリリストオーナーを取得する",
-						Method: "GET",
-						Versions: Versions{
-							"v1",
-						},
-					},
-				},
-			},
+			name:   "正常系",
+			fields: normalTestCaseFieldStruct,
 		}, {
 			name: "m2m-coreでデバッグした実値",
 			fields: fields{
@@ -164,11 +210,6 @@ func Test_endpoints_generateAPIList(t *testing.T) {
 
 // TODO: この関数バグってる
 func Test_endpoints_generateOpenApiSchema(t *testing.T) {
-	type fields struct {
-		env       []Env
-		frontends []string
-		api       []API
-	}
 	type args struct {
 		config OpenApiGeneratorConfig
 	}
@@ -179,7 +220,13 @@ func Test_endpoints_generateOpenApiSchema(t *testing.T) {
 		want    openapi3.T
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name:   "正常系",
+			fields: normalTestCaseFieldStruct,
+		},
+		{
+			name: "m2m-coreでデバッグした実値",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
