@@ -1,11 +1,12 @@
 package endpoints
 
 import (
+	"reflect"
+	"testing"
+
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/iancoleman/orderedmap"
 	"github.com/labstack/gommon/log"
-	"reflect"
-	"testing"
 )
 
 func Test_endpoints_generateAPIListByFrontend(t *testing.T) {
