@@ -19,11 +19,6 @@ type args struct {
 	frontend string
 }
 
-// path /owners/ownerHistory/:id/
-// flag :id
-// name id
-// replace後path /owners/ownerHistory/{id}/
-
 // m2m-coreでデバッグした実値
 var m2mCoreRealValueFieldsStruct = fields{
 	env: []Env{
@@ -226,9 +221,6 @@ func Test_endpoints_generateAPIList(t *testing.T) {
 	}
 }
 
-//						Name: "\t\t\t\t\t{\n\t\t\t\t\t\tName: \"findById\",\n\t\t\t\t\t\tPath: \"owners/ownerHistory/:id/\",\n\t\t\t\t\t\t// ↓なぜか文字化けしてた\n\t\t\t\t\t\tDesc:   \"ownerHistoryIdを使って管理しているリスティングのオーナー履歴一覧を取得する\",\n\t\t\t\t\t\tMethod: \"GET\",\n\t\t\t\t\t},",
-
-// TODO: この関数バグってる
 func Test_endpoints_generateOpenApiSchema(t *testing.T) {
 	type args struct {
 		config OpenApiGeneratorConfig

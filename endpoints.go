@@ -107,7 +107,6 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 
 	paths := openapi3.Paths{}
 	for _, api := range e.api {
-		item := &openapi3.PathItem{}
 
 		// normalize path
 		path := api.Path
@@ -177,6 +176,11 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 					},
 				},
 			},
+		}
+
+		item := &openapi3.PathItem{}
+		if paths[path] != nil {
+			item = paths[path]
 		}
 
 		if api.Method == http.MethodGet {
