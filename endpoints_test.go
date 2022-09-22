@@ -230,7 +230,7 @@ func Test_endpoints_generateOpenApiSchema(t *testing.T) {
 		name    string
 		fields  fields
 		args    args
-		want    openapi3.T
+		want    openapi3.Paths
 		wantErr bool
 	}{
 		{
@@ -240,35 +240,29 @@ func Test_endpoints_generateOpenApiSchema(t *testing.T) {
 		{
 			name:   "m2m-coreでデバッグした実値",
 			fields: m2mCoreRealValueFieldsStruct,
-			want: openapi3.T{
-				OpenAPI: "3.0.0",
-				SecurityScheme: map[string]*openapi3.SecuritySchemeRef{
-					"Bearer": {
-				}
-				Paths: openapi3.Paths{
-					"/api/v1/matsuri_listing_owner/{id}": &openapi3.PathItem{
-						Get: &openapi3.Operation{
-							Description: "マツリリストオーナーを取得する",
-							Parameters: openapi3.Parameters{
-								&openapi3.ParameterRef{
-									Value: &openapi3.Parameter{
-										Name: "id",
-										In:   "path",
-									},
+			want: openapi3.Paths{
+				"/api/v1/matsuri_listing_owner/{id}": &openapi3.PathItem{
+					Get: &openapi3.Operation{
+						Description: "マツリリストオーナーを取得する",
+						Parameters: openapi3.Parameters{
+							&openapi3.ParameterRef{
+								Value: &openapi3.Parameter{
+									Name: "id",
+									In:   "path",
 								},
 							},
 						},
 					},
 				},
 			},
-			//	{
-			//	{
-			//		map[]
-			//		}
-			//		3.0.0
-			//	{{map[]} map[] map[] map[] map[] map[] map[auth:0x1400000e8a0] map[] map[] map[]} 0x1400010c3c0 map[/api/v1/health_check:0x14000134580 /api/v1/matsuri_listing_owner/{id}:0x140001344d0 /owners/listings/{listingId}/ownerHistories?listingId=xxx:0x14000134840 /owners/ownerHistory/{id}/:0x14000134630] [] [0x1400019e210 0x1400019e240 0x1400019e270] [] <nil> {map[] map[]}},
-			//want {{map[]}  {{map[]} map[] map[] map[] map[] map[] map[] map[] map[] map[]} <nil> map[] [] [] [] <nil> {map[] map[]}}
 		},
+		//	{
+		//	{
+		//		map[]
+		//		}
+		//		3.0.0
+		//	{{map[]} map[] map[] map[] map[] map[] map[auth:0x1400000e8a0] map[] map[] map[]} 0x1400010c3c0 map[/api/v1/health_check:0x14000134580 /api/v1/matsuri_listing_owner/{id}:0x140001344d0 /owners/listings/{listingId}/ownerHistories?listingId=xxx:0x14000134840 /owners/ownerHistory/{id}/:0x14000134630] [] [0x1400019e210 0x1400019e240 0x1400019e270] [] <nil> {map[] map[]}},
+		//want {{map[]}  {{map[]} map[] map[] map[] map[] map[] map[] map[] map[] map[]} <nil> map[] [] [] [] <nil> {map[] map[]}}
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -278,7 +272,7 @@ func Test_endpoints_generateOpenApiSchema(t *testing.T) {
 				api:       tt.fields.api,
 			}
 			got, err := e.generateOpenApiSchema(tt.args.config)
-			assert.Equal(t, got.Paths, tt.want.Paths)
+			assert.Equal(t, got.Paths, tt.want)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("generateOpenApiSchema() error = %v, wantErr %v", err, tt.wantErr)
 				return
