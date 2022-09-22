@@ -72,7 +72,7 @@ var m2mCoreRealValueFieldsStruct = fields{
 		},
 		{
 			Name:   "findAllByListingId",
-			Path:   "owners/listings/:listingId/ownerHistories?listingId=xxx",
+			Path:   "owners/listings/:listingId/ownerHistories",
 			Desc:   "listingIdを使って管理しているリスティングのオーナー履歴一覧を取得する",
 			Method: "GET",
 		},
@@ -102,6 +102,9 @@ var normalTestCaseFieldStruct = fields{
 			},
 		},
 	},
+}
+var normalTestCasePath = openapi3.Paths{
+	"/api/v1/matsuri_listing_owner/{id}": &openapi3.PathItem{},
 }
 
 func Test_endpoints_generateAPIListByFrontend(t *testing.T) {
@@ -158,7 +161,7 @@ func Test_endpoints_generateAPIListByFrontend(t *testing.T) {
 						Method: "DELETE",
 					},
 					{
-						Name: "findById",
+						Name: "findOwnerHistoryById",
 						Path: "owners/ownerHistory/:id/",
 						// ↓なぜか文字化けしてた
 						//Desc:   "ownerHistoryIdを使って管理しているリスティングのオーナー履歴一覧を取得する",
@@ -167,7 +170,7 @@ func Test_endpoints_generateAPIListByFrontend(t *testing.T) {
 					},
 					{
 						Name:   "findAllByListingId",
-						Path:   "owners/listings/:listingId/ownerHistories?listingId=xxx",
+						Path:   "listings/:listingId/ownerHistories",
 						Desc:   "listingIdを使って管理しているリスティングのオーナー履歴一覧を取得する",
 						Method: "GET",
 					},
@@ -236,14 +239,77 @@ func Test_endpoints_generateOpenApiSchema(t *testing.T) {
 		{
 			name:   "正常系",
 			fields: normalTestCaseFieldStruct,
+			want:   normalTestCasePath,
 		},
 		{
 			name:   "m2m-coreでデバッグした実値",
 			fields: m2mCoreRealValueFieldsStruct,
 			want: openapi3.Paths{
+				"/api/v1/health_check": &openapi3.PathItem{
+					Get: &openapi3.Operation{
+						Description: "ヘルスチェック",
+						Parameters: openapi3.Parameters{
+							&openapi3.ParameterRef{
+								Value: &openapi3.Parameter{
+									Name: "id",
+									In:   "path",
+								},
+							},
+						},
+					},
+				},
 				"/api/v1/matsuri_listing_owner/{id}": &openapi3.PathItem{
 					Get: &openapi3.Operation{
+
 						Description: "マツリリストオーナーを取得する",
+						Parameters: openapi3.Parameters{
+							&openapi3.ParameterRef{
+								Value: &openapi3.Parameter{
+									Name: "id",
+									In:   "path",
+								},
+							},
+						},
+					},
+				},
+				"/owners/ownerHistory/{id}/": &openapi3.PathItem{
+					Get: &openapi3.Operation{
+						Description: "ownerHistoryIdを使って管理しているlist一覧を取得",
+						Parameters: openapi3.Parameters{
+							&openapi3.ParameterRef{
+								Value: &openapi3.Parameter{
+									Name: "id",
+									In:   "path",
+								},
+							},
+						},
+					},
+					Delete: &openapi3.Operation{
+						Description: "指定idのオーナー履歴を削除する",
+						Parameters: openapi3.Parameters{
+							&openapi3.ParameterRef{
+								Value: &openapi3.Parameter{
+									Name: "id",
+									In:   "path",
+								},
+							},
+						},
+					},
+					Patch: &openapi3.Operation{
+						Description: "ownerHistoryIdを使って該当のオーナー履歴を更新する",
+						Parameters: openapi3.Parameters{
+							&openapi3.ParameterRef{
+								Value: &openapi3.Parameter{
+									Name: "id",
+									In:   "path",
+								},
+							},
+						},
+					},
+				},
+				"/owners/listings/{listingId}/ownerHistories": &openapi3.PathItem{
+					Get: &openapi3.Operation{
+						Description: "listingIdを使って管理しているリスティングのオーナー履歴一覧を取得する",
 						Parameters: openapi3.Parameters{
 							&openapi3.ParameterRef{
 								Value: &openapi3.Parameter{
@@ -272,14 +338,17 @@ func Test_endpoints_generateOpenApiSchema(t *testing.T) {
 				api:       tt.fields.api,
 			}
 			got, err := e.generateOpenApiSchema(tt.args.config)
-			assert.Equal(t, got.Paths, tt.want)
+			assert.Equal(t, tt.want, got.Paths)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("generateOpenApiSchema() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("generateOpenApiSchema() got = %v, want %v", got, tt.want)
+				t.Errorf("generateOpenApiSchema() got.Paths = %v, want %v", got.Paths, tt.want)
 			}
 		})
 	}
 }
+
+//    got  map[/api/v1/health_check:0x140001d8b00 /api/v1/matsuri_listing_owner/{id}:0x140001d8a50 /owners/listings/{listingId}/ownerHistories:0x140001d8dc0 /owners/ownerHistory/{id}/:0x140001d8bb0],
+//    want map[/api/v1/health_check:0x140001d84d0 /api/v1/matsuri_listing_owner/{id}:0x140001d8580 /owners/listings/{listingId}/ownerHistories:0x140001d86e0 /owners/ownerHistory/{id}/:0x140001d8630]
