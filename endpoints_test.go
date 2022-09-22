@@ -480,9 +480,6 @@ func Test_endpoints_generateOpenApiSchema(t *testing.T) {
 				t.Errorf("generateOpenApiSchema() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			//if !reflect.DeepEqual(got, tt.want) {
-			//	t.Errorf("generateOpenApiSchema() got.Paths = %v, want %v", got.Paths, tt.want)
-			//}
 		})
 	}
 }
