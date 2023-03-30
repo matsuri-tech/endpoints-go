@@ -116,12 +116,13 @@ func (w *EchoWrapper) GroupWithVersionsAndFrontends(
 // に限り、直接呼んでよい
 func (g *GroupWrapper) AddAPI(path string, desc Desc, method string) {
 	g.parent.endpoints.addAPI(API{
-		Name:      desc.Name,
-		Path:      g.prefix + path + desc.query(),
-		Desc:      desc.Desc,
-		Method:    method,
-		Versions:  append(g.versions, desc.Versions...),
-		Frontends: append(g.frontends, desc.Frontends...),
+		Name:       desc.Name,
+		Path:       g.prefix + path + desc.query(),
+		Desc:       desc.Desc,
+		Method:     method,
+		AuthSchema: desc.authSchema,
+		Versions:   append(g.versions, desc.Versions...),
+		Frontends:  append(g.frontends, desc.Frontends...),
 	})
 }
 
@@ -151,11 +152,12 @@ func (g *GroupWrapper) DELETE(path string, h echo.HandlerFunc, desc Desc, m ...e
 }
 
 type Desc struct {
-	Name      string
-	Query     string
-	Desc      string
-	Versions  []string
-	Frontends []string
+	Name       string
+	Query      string
+	Desc       string
+	authSchema AuthSchema
+	Versions   []string
+	Frontends  []string
 }
 
 func (d *Desc) query() string {
