@@ -347,6 +347,20 @@ type AuthSchema struct {
 	Header string `json:"header"`
 }
 
+func NewBearerAuthSchema() AuthSchema {
+	return AuthSchema{
+		Type:   "Bearer",
+		Header: "Authorization",
+	}
+}
+
+func NewApiKeyAuthSchema() AuthSchema {
+	return AuthSchema{
+		Type:   "ApiKey",
+		Header: "X-Access-Token",
+	}
+}
+
 type API struct {
 	Name       string
 	Path       string
