@@ -117,6 +117,27 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 		}
 
 		parameters := openapi3.Parameters{}
+
+		if strings.Contains(path, "?") {
+			splits := strings.Split(path, "?")
+			// pathを書き換えているので注意
+			path = splits[0]
+			queryStrings := strings.TrimPrefix(splits[1], "?")
+
+			for _, frag := range strings.Split(queryStrings, "&") {
+				keyValue := strings.Split(frag, "=")
+				parameters = append(parameters, &openapi3.ParameterRef{
+					Value: &openapi3.Parameter{
+						Name:        keyValue[0],
+						In:          "query",
+						Description: description,
+						Required:    true,
+						Schema:      &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "string"}},
+					},
+				})
+			}
+		}
+
 		for _, frag := range strings.Split(path, "/") {
 			if !strings.HasPrefix(frag, ":") {
 				continue
