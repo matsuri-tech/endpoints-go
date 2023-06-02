@@ -238,7 +238,7 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 	return schema, nil
 }
 
-func (e *endpoints) generateOpenApiJson(filename string, config OpenApiGeneratorConfig) error {
+func (e *endpoints) generateOpenApiJson(file io.Writer, config OpenApiGeneratorConfig) error {
 	schema, err := e.generateOpenApiSchema(config)
 	if err != nil {
 		return err
@@ -249,14 +249,14 @@ func (e *endpoints) generateOpenApiJson(filename string, config OpenApiGenerator
 		return err
 	}
 
-	if err := os.WriteFile(filename, bs, 0644); err != nil {
+	if _, err := file.Write(bs); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (e *endpoints) generateOpenApiYaml(filename string, config OpenApiGeneratorConfig) error {
+func (e *endpoints) generateOpenApiYaml(file io.Writer, config OpenApiGeneratorConfig) error {
 	schema, err := e.generateOpenApiSchema(config)
 	if err != nil {
 		return err
@@ -278,7 +278,7 @@ func (e *endpoints) generateOpenApiYaml(filename string, config OpenApiGenerator
 		return err
 	}
 
-	if err := os.WriteFile(filename, bs, 0644); err != nil {
+	if _, err := file.Write(bs); err != nil {
 		return err
 	}
 

@@ -1,6 +1,9 @@
 package endpoints
 
-import "github.com/labstack/echo/v4"
+import (
+	"github.com/labstack/echo/v4"
+	"os"
+)
 
 // EchoWrapper に対応するメソッドが存在しないEchoの機能を使いたい場合に限り、
 // wrapされたEchoを直接呼んでよい。
@@ -58,11 +61,26 @@ func (w *EchoWrapper) Generate(filename string) error {
 }
 
 func (w *EchoWrapper) GenerateOpenApiJson(filename string, config OpenApiGeneratorConfig) error {
-	return w.endpoints.generateOpenApiJson(filename, config)
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		file.Close()
+	}()
+
+	return w.endpoints.generateOpenApiJson(file, config)
 }
 
 func (w *EchoWrapper) GenerateOpenApi(filename string, config OpenApiGeneratorConfig) error {
-	return w.endpoints.generateOpenApiYaml(filename, config)
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		file.Close()
+	}()
+	return w.endpoints.generateOpenApiYaml(file, config)
 }
 
 func (w *EchoWrapper) GET(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
