@@ -254,9 +254,9 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 	}
 
 	schema := openapi3.T{
-		ExtensionProps: openapi3.ExtensionProps{},
-		OpenAPI:        "3.0.0",
-		Components: openapi3.Components{
+		Extensions: nil,
+		OpenAPI:    "3.0.0",
+		Components: &openapi3.Components{
 			SecuritySchemes: openapi3.SecuritySchemes{
 				"auth": &openapi3.SecuritySchemeRef{
 					Value: &openapi3.SecurityScheme{
