@@ -56,6 +56,21 @@ func (w *EchoWrapper) AddAPI(path string, desc Desc, method string) {
 	})
 }
 
+// AddAPITyped は、原則として外部から直接呼ばないこと
+// ただし、wrapされたEchoを直接使ってエンドポイントを生やす場合
+// （EchoWrapperが対応していないメソッドを使う場合など）
+// に限り、直接呼んでよい
+func (w *EchoWrapper) AddAPITyped(path string, desc Desc, method string, req any, resp any) {
+	w.endpoints.addAPI(API{
+		Name:     desc.Name,
+		Path:     path + desc.query(),
+		Desc:     desc.Desc,
+		Method:   method,
+		Request:  req,
+		Response: resp,
+	})
+}
+
 func (w *EchoWrapper) Generate(filename string) error {
 	return w.endpoints.generate(filename)
 }
@@ -85,6 +100,11 @@ func (w *EchoWrapper) GenerateOpenApi(filename string, config OpenApiGeneratorCo
 
 func (w *EchoWrapper) GET(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	w.AddAPI(path, desc, "GET")
+	return w.Echo.GET(path, h, m...)
+}
+
+func (w *EchoWrapper) GETTyped(path string, h echo.HandlerFunc, desc Desc, req any, resp any, m ...echo.MiddlewareFunc) *echo.Route {
+	w.AddAPITyped(path, desc, "GET", req, resp)
 	return w.Echo.GET(path, h, m...)
 }
 
@@ -144,8 +164,27 @@ func (g *GroupWrapper) AddAPI(path string, desc Desc, method string) {
 	})
 }
 
+func (g *GroupWrapper) AddAPITyped(path string, desc Desc, method string, req any, resp any) {
+	g.parent.endpoints.addAPI(API{
+		Name:       desc.Name,
+		Path:       g.prefix + path + desc.query(),
+		Desc:       desc.Desc,
+		Method:     method,
+		AuthSchema: desc.AuthSchema,
+		Request:    req,
+		Response:   resp,
+		Versions:   append(g.versions, desc.Versions...),
+		Frontends:  append(g.frontends, desc.Frontends...),
+	})
+}
+
 func (g *GroupWrapper) GET(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	g.AddAPI(path, desc, "GET")
+	return g.Group.GET(path, h, m...)
+}
+
+func (g *GroupWrapper) GETTyped(path string, h echo.HandlerFunc, desc Desc, resp any, m ...echo.MiddlewareFunc) *echo.Route {
+	g.AddAPITyped(path, desc, "GET", nil, resp)
 	return g.Group.GET(path, h, m...)
 }
 

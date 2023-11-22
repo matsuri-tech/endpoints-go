@@ -388,6 +388,8 @@ type API struct {
 	Desc       string
 	Method     string
 	AuthSchema AuthSchema
+	Request    any
+	Response   any
 
 	// バージョン番号 e.g. "v1", "v2"
 	// 指定がない場合、すべてのバージョンに含むものとみなす
