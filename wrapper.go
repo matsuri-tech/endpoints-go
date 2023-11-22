@@ -164,11 +164,6 @@ func makeHandler[Req any, Resp any](h func(ctx echo.Context, req Req) (Resp, err
 			return err
 		}
 
-		var respNil Resp
-		if resp == respNil {
-			return c.NoContent(http.StatusOK)
-		}
-
 		return c.JSON(http.StatusOK, resp)
 	}
 }
@@ -180,11 +175,25 @@ func makeHandlerNoRequest[Resp any](h func(ctx echo.Context) (Resp, error)) echo
 			return err
 		}
 
-		if resp == nil {
-			return c.NoContent(http.StatusOK)
+		return c.JSON(http.StatusOK, resp)
+	}
+}
+
+func makeHandlerNoContent[Req any](h func(ctx echo.Context, req Req) error) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		var r Req
+		if err := c.Bind(&r); err != nil {
+			return err
+		}
+		if err := c.Validate(&r); err != nil {
+			return err
 		}
 
-		return c.JSON(http.StatusOK, resp)
+		if err := h(c, r); err != nil {
+			return err
+		}
+
+		return c.NoContent(http.StatusNoContent)
 	}
 }
 
@@ -197,13 +206,25 @@ func EwGET[Resp any](w *EchoWrapper, path string, h func(ctx echo.Context) (Resp
 }
 
 // 詳細についてはEwGETを見よ
+// 返すべきresponseがないケースでは、EwPOSTNoContentを使うこと
 func EwPOST[Req any, Resp any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	return w.POST(path, makeHandler(h), desc, m...)
 }
 
 // 詳細についてはEwGETを見よ
+func EwPOSTNoContent[Req any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	return w.POST(path, makeHandlerNoContent(h), desc, m...)
+}
+
+// 詳細についてはEwGETを見よ
+// 返すべきresponseがないケースでは、EwPUTNoContentを使うこと
 func EwPUT[Req any, Resp any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	return w.PUT(path, makeHandler(h), desc, m...)
+}
+
+// 詳細についてはEwGETを見よ
+func EwPUTNoContent[Req any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	return w.PUT(path, makeHandlerNoContent(h), desc, m...)
 }
 
 // 詳細についてはEwGETを見よ
@@ -212,8 +233,18 @@ func EwPATCH[Req any, Resp any](w *EchoWrapper, path string, h func(ctx echo.Con
 }
 
 // 詳細についてはEwGETを見よ
+func EwPATCHNoContent[Req any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	return w.PATCH(path, makeHandlerNoContent(h), desc, m...)
+}
+
+// 詳細についてはEwGETを見よ
 func EwDELETE[Resp any](w *EchoWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	return w.DELETE(path, makeHandlerNoRequest(h), desc, m...)
+}
+
+// 詳細についてはEwGETを見よ
+func EwDELETENoContent[Req any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	return w.DELETE(path, makeHandlerNoContent(h), desc, m...)
 }
 
 func (w *EchoWrapper) Group(prefix string, m ...echo.MiddlewareFunc) *GroupWrapper {
@@ -321,20 +352,44 @@ func GwGET[Resp any](g *GroupWrapper, path string, h func(ctx echo.Context) (Res
 	return g.GET(path, makeHandlerNoRequest(h), desc, m...)
 }
 
+// 詳細についてはEwGETを見よ
 func GwPOST[Req any, Resp any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	return g.POST(path, makeHandler(h), desc, m...)
 }
 
+// 詳細についてはEwGETを見よ
+func GwPOSTNoContent[Req any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	return g.POST(path, makeHandlerNoContent(h), desc, m...)
+}
+
+// 詳細についてはEwGETを見よ
 func GwPUT[Req any, Resp any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	return g.PUT(path, makeHandler(h), desc, m...)
 }
 
+// 詳細についてはEwGETを見よ
+func GwPUTNoContent[Req any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	return g.PUT(path, makeHandlerNoContent(h), desc, m...)
+}
+
+// 詳細についてはEwGETを見よ
 func GwPATCH[Req any, Resp any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	return g.PATCH(path, makeHandler(h), desc, m...)
 }
 
+// 詳細についてはEwGETを見よ
+func GwPATCHNoContent[Req any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	return g.PATCH(path, makeHandlerNoContent(h), desc, m...)
+}
+
+// 詳細についてはEwGETを見よ
 func GwDELETE[Resp any](g *GroupWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	return g.DELETE(path, makeHandlerNoRequest(h), desc, m...)
+}
+
+// 詳細についてはEwGETを見よ
+func GwDELETENoContent[Req any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	return g.DELETE(path, makeHandlerNoContent(h), desc, m...)
 }
 
 type Desc struct {
