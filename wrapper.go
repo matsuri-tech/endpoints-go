@@ -183,11 +183,6 @@ func (g *GroupWrapper) GET(path string, h echo.HandlerFunc, desc Desc, m ...echo
 	return g.Group.GET(path, h, m...)
 }
 
-func (g *GroupWrapper) GETTyped(path string, h echo.HandlerFunc, desc Desc, resp any, m ...echo.MiddlewareFunc) *echo.Route {
-	g.AddAPITyped(path, desc, "GET", nil, resp)
-	return g.Group.GET(path, h, m...)
-}
-
 func (g *GroupWrapper) POST(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	g.AddAPI(path, desc, "POST")
 	return g.Group.POST(path, h, m...)
@@ -205,6 +200,31 @@ func (g *GroupWrapper) PATCH(path string, h echo.HandlerFunc, desc Desc, m ...ec
 
 func (g *GroupWrapper) DELETE(path string, h echo.HandlerFunc, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	g.AddAPI(path, desc, "DELETE")
+	return g.Group.DELETE(path, h, m...)
+}
+
+func (g *GroupWrapper) GETTyped(path string, h echo.HandlerFunc, desc Desc, resp any, m ...echo.MiddlewareFunc) *echo.Route {
+	g.AddAPITyped(path, desc, "GET", nil, resp)
+	return g.Group.GET(path, h, m...)
+}
+
+func (g *GroupWrapper) POSTTyped(path string, h echo.HandlerFunc, desc Desc, req any, resp any, m ...echo.MiddlewareFunc) *echo.Route {
+	g.AddAPITyped(path, desc, "POST", req, resp)
+	return g.Group.POST(path, h, m...)
+}
+
+func (g *GroupWrapper) PUTTyped(path string, h echo.HandlerFunc, desc Desc, req any, resp any, m ...echo.MiddlewareFunc) *echo.Route {
+	g.AddAPITyped(path, desc, "PUT", req, resp)
+	return g.Group.PUT(path, h, m...)
+}
+
+func (g *GroupWrapper) PATCHTyped(path string, h echo.HandlerFunc, desc Desc, req any, resp any, m ...echo.MiddlewareFunc) *echo.Route {
+	g.AddAPITyped(path, desc, "PATCH", req, resp)
+	return g.Group.PATCH(path, h, m...)
+}
+
+func (g *GroupWrapper) DELETETyped(path string, h echo.HandlerFunc, desc Desc, resp any, m ...echo.MiddlewareFunc) *echo.Route {
+	g.AddAPITyped(path, desc, "DELETE", nil, resp)
 	return g.Group.DELETE(path, h, m...)
 }
 
