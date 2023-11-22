@@ -35,16 +35,18 @@ func (handler SampleHandler) GetWithQuery(c echo.Context) error {
 }
 
 func (handler SampleHandler) GetWithQueryWrapper(c echo.Context) (SampleModel, error) {
-	return SampleModel{}, nil
+	return SampleModel{
+		ID:        "1",
+		Name:      "sample",
+		CreatedAt: 1234567890,
+	}, nil
 }
 
 func NewSampleHandler() SampleHandler {
 	return SampleHandler{}
 }
 
-func newRoute() *EchoWrapper {
-	e := echo.New()
-
+func newRoute(e *echo.Echo) *EchoWrapper {
 	ew := NewEchoWrapper(e)
 	ew.AddEnv(
 		Env{
@@ -93,8 +95,20 @@ func newRoute() *EchoWrapper {
 	return ew
 }
 
+func TestEcho_start(t *testing.T) {
+	t.Skip()
+
+	e := echo.New()
+	_ = newRoute(e)
+
+	if err := e.Start(""); err != nil {
+		t.Errorf("err: %v", err)
+	}
+}
+
 func TestEchoWrapper_GenerateOpenApi(t *testing.T) {
-	ew := newRoute()
+	e := echo.New()
+	ew := newRoute(e)
 
 	buf := new(bytes.Buffer)
 	conf := OpenApiGeneratorConfig{}
@@ -284,7 +298,8 @@ func TestEchoWrapper_GenerateOpenApi(t *testing.T) {
 }
 
 func TestEchoWrapper_Generate(t *testing.T) {
-	ew := newRoute()
+	e := echo.New()
+	ew := newRoute(e)
 
 	actual, err := ew.endpoints.generateJson()
 	if err != nil {
