@@ -23,8 +23,7 @@ func NewSampleHandler() SampleHandler {
 	return SampleHandler{}
 }
 
-func TestEchoWrapper_GenerateOpenApi(t *testing.T) {
-
+func newRoute() *EchoWrapper {
 	e := echo.New()
 
 	ew := NewEchoWrapper(e)
@@ -60,6 +59,13 @@ func TestEchoWrapper_GenerateOpenApi(t *testing.T) {
 		Query: "yearMonth=2021-01",
 		Desc:  "GET samples",
 	}, SampleModel{})
+
+	return ew
+}
+
+func TestEchoWrapper_GenerateOpenApi(t *testing.T) {
+	ew := newRoute()
+
 	buf := new(bytes.Buffer)
 	conf := OpenApiGeneratorConfig{}
 
@@ -192,4 +198,83 @@ func TestEchoWrapper_GenerateOpenApi(t *testing.T) {
 }`)
 
 	assert.JSONEq(t, string(expected), buf.String())
+}
+
+func TestEchoWrapper_Generate(t *testing.T) {
+	ew := newRoute()
+
+	actual, err := ew.endpoints.generateJson()
+	if err != nil {
+		t.Errorf("err: %v", err)
+	}
+
+	expected := []byte(`
+{
+  "v1": {
+    "env": {
+  	  "dev": "https://dev.hoge.com",
+      "local": "http://localhost:8000",
+	  "localDev": "https://local-dev.hoge.com",
+	  "prod": "https://hoge.com"
+    },
+    "api": {
+      "getSamplesWithQuery": {
+        "authSchema": {
+          "header": "",
+          "type": ""
+        },
+        "desc": "GET samples",
+        "method": "GET",
+        "path": "samples/:id/another?yearMonth=2021-01",
+        "request": null,
+        "response": "#/$defs/SampleModel"
+      }
+    }
+  },
+  "v2": {
+    "env": {
+  	  "dev": "https://v2.dev.hoge.com",
+      "local": "http://localhost:8000",
+	  "localDev": "https://local-dev.hoge.com",
+	  "prod": "https://v2.hoge.com"
+    },
+    "api": {
+      "getSamplesWithQuery": {
+        "authSchema": {
+          "header": "",
+          "type": ""
+ 	    },
+        "desc": "GET samples",
+        "method": "GET",
+        "path": "samples/:id/another?yearMonth=2021-01",
+        "request": null,
+        "response": "#/$defs/SampleModel"
+      }
+    }
+  },
+  "defs": {
+	"SampleModel": {
+	  "properties": {
+		"id": {
+		  "type": "string"
+		},
+		"name": {
+		  "type": "string"
+		},
+		"created_at": {
+		  "type": "integer"
+		}
+	  },
+	  "additionalProperties": false,
+	  "type": "object",
+	  "required": [
+		"id",
+		"name",
+		"created_at"
+	  ]
+	}
+  }
+}`)
+
+	assert.JSONEq(t, string(expected), string(actual), string(actual))
 }

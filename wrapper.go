@@ -103,8 +103,8 @@ func (w *EchoWrapper) GET(path string, h echo.HandlerFunc, desc Desc, m ...echo.
 	return w.Echo.GET(path, h, m...)
 }
 
-func (w *EchoWrapper) GETTyped(path string, h echo.HandlerFunc, desc Desc, req any, resp any, m ...echo.MiddlewareFunc) *echo.Route {
-	w.AddAPITyped(path, desc, "GET", req, resp)
+func (w *EchoWrapper) GETTyped(path string, h echo.HandlerFunc, desc Desc, resp any, m ...echo.MiddlewareFunc) *echo.Route {
+	w.AddAPITyped(path, desc, "GET", nil, resp)
 	return w.Echo.GET(path, h, m...)
 }
 

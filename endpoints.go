@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/invopop/jsonschema"
 	"io"
 	"net/http"
 	"os"
@@ -19,6 +20,7 @@ type endpoints struct {
 	env       []Env
 	frontends []string
 	api       []API
+	defs      []jsonschema.Definitions
 }
 
 func (e *endpoints) addEnv(env ...Env) {
@@ -33,7 +35,7 @@ func (e *endpoints) addFrontends(frontends ...string) {
 	e.frontends = append(e.frontends, frontends...)
 }
 
-func (e *endpoints) generate(filename string) error {
+func (e *endpoints) generateJson() ([]byte, error) {
 	endpoints := orderedmap.New()
 	for _, v := range e.env {
 		version := orderedmap.New()
@@ -50,6 +52,15 @@ func (e *endpoints) generate(filename string) error {
 		}
 	}
 
+	defs := map[string]interface{}{}
+	for _, d := range e.defs {
+		for k, v := range d {
+			// TODO: 重複チェック
+			defs[k] = v
+		}
+	}
+	endpoints.Set("defs", defs)
+
 	var b bytes.Buffer
 	encoder := json.NewEncoder(&b)
 	// orderedmapの仕様でEscapeHTMLをdisableできないようなので、
@@ -57,18 +68,28 @@ func (e *endpoints) generate(filename string) error {
 	encoder.SetEscapeHTML(true)
 	encoder.SetIndent("", "  ")
 	if err := encoder.Encode(&endpoints); err != nil {
-		return err
+		return nil, err
 	}
 
 	u1 := bytes.ReplaceAll(b.Bytes(), []byte(`\003c`), []byte("<"))
 	u2 := bytes.ReplaceAll(u1, []byte(`\003e`), []byte(">"))
 	unescaped := bytes.ReplaceAll(u2, []byte(`\u0026`), []byte("&"))
 
+	return unescaped, nil
+}
+
+func (e *endpoints) generate(filename string) error {
+	bs, err := e.generateJson()
+	if err != nil {
+		return err
+	}
+
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
 	}
-	if _, err := io.Copy(file, bytes.NewReader(unescaped)); err != nil {
+
+	if _, err := io.Copy(file, bytes.NewReader(bs)); err != nil {
 		return err
 	}
 
@@ -306,22 +327,21 @@ func (e *endpoints) generateOpenApiYaml(file io.Writer, config OpenApiGeneratorC
 	return nil
 }
 
+type generatedApi struct {
+	Path        string     `json:"path"`
+	Desc        string     `json:"desc"`
+	Method      string     `json:"method"`
+	AuthSchema  AuthSchema `json:"authSchema"`
+	RequestRef  *string    `json:"request"`
+	ResponseRef *string    `json:"response"`
+}
+
 func (e *endpoints) generateAPIList(version string) *orderedmap.OrderedMap {
 	apis := orderedmap.New()
 	for _, v := range e.api {
 		// v.Versionsが定義されていない場合は全てのバージョンに含まれるものとして扱う
 		if len(v.Versions) == 0 || v.Versions.Includes(version) {
-			apis.Set(v.Name, struct {
-				Path       string     `json:"path"`
-				Desc       string     `json:"desc"`
-				Method     string     `json:"method"`
-				AuthSchema AuthSchema `json:"authSchema"`
-			}{
-				Path:       strings.TrimPrefix(v.Path, "/"),
-				Desc:       v.Desc,
-				Method:     v.Method,
-				AuthSchema: v.AuthSchema,
-			})
+			apis.Set(v.Name, v.generatedApi(&e.defs))
 		}
 	}
 	return apis
@@ -334,17 +354,7 @@ func (e *endpoints) generateAPIListByFrontend(version, frontend string) *ordered
 		if len(v.Versions) == 0 || v.Versions.Includes(version) {
 			// v.Targetsが定義されていない場合は全てのフロントエンドに含まれるものとして扱う
 			if len(v.Frontends) == 0 || v.Frontends.Includes(frontend) {
-				apis.Set(v.Name, struct {
-					Path       string     `json:"path"`
-					Desc       string     `json:"desc"`
-					Method     string     `json:"method"`
-					AuthSchema AuthSchema `json:"authSchema"`
-				}{
-					Path:       strings.TrimPrefix(v.Path, "/"),
-					Desc:       v.Desc,
-					Method:     v.Method,
-					AuthSchema: v.AuthSchema,
-				})
+				apis.Set(v.Name, v.generatedApi(&e.defs))
 			}
 		}
 	}
@@ -398,6 +408,33 @@ type API struct {
 	// 対象とするフロントエンド e.g. "guest", "manager", "admin"
 	// 指定がない場合、すべてのフロントエンド向けの.endpoints.jsonに含むものとみなす
 	Frontends Frontends
+}
+
+func (v API) generatedApi(defs *[]jsonschema.Definitions) generatedApi {
+	var requestRef *string
+
+	if v.Request != nil {
+		reqSchema := jsonschema.Reflect(v.Request)
+		*defs = append(*defs, reqSchema.Definitions)
+		requestRef = &reqSchema.Ref
+	}
+
+	var responseRef *string
+
+	if v.Response != nil {
+		respSchema := jsonschema.Reflect(v.Response)
+		*defs = append(*defs, respSchema.Definitions)
+		responseRef = &respSchema.Ref
+	}
+
+	return generatedApi{
+		Path:        strings.TrimPrefix(v.Path, "/"),
+		Desc:        v.Desc,
+		Method:      v.Method,
+		AuthSchema:  v.AuthSchema,
+		RequestRef:  requestRef,
+		ResponseRef: responseRef,
+	}
 }
 
 type Versions []string
