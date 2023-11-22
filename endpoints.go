@@ -327,13 +327,21 @@ func (e *endpoints) generateOpenApiYaml(file io.Writer, config OpenApiGeneratorC
 	return nil
 }
 
+type schemaStruct struct {
+	// object用
+	Ref  string `json:"$ref,omitempty"`
+	Type string `json:"type,omitempty"`
+	// array用
+	Items *jsonschema.Schema `json:"items,omitempty"`
+}
+
 type generatedApi struct {
-	Path        string     `json:"path"`
-	Desc        string     `json:"desc"`
-	Method      string     `json:"method"`
-	AuthSchema  AuthSchema `json:"authSchema"`
-	RequestRef  *string    `json:"request"`
-	ResponseRef *string    `json:"response"`
+	Path       string        `json:"path"`
+	Desc       string        `json:"desc"`
+	Method     string        `json:"method"`
+	AuthSchema AuthSchema    `json:"authSchema"`
+	Request    *schemaStruct `json:"request"`
+	Response   *schemaStruct `json:"response"`
 }
 
 func (e *endpoints) generateAPIList(version string) *orderedmap.OrderedMap {
@@ -411,29 +419,37 @@ type API struct {
 }
 
 func (v API) generatedApi(defs *[]jsonschema.Definitions) generatedApi {
-	var requestRef *string
+	var reqSchema *schemaStruct
 
 	if v.Request != nil {
-		reqSchema := jsonschema.Reflect(v.Request)
-		*defs = append(*defs, reqSchema.Definitions)
-		requestRef = &reqSchema.Ref
+		s := jsonschema.Reflect(v.Request)
+		*defs = append(*defs, s.Definitions)
+		reqSchema = &schemaStruct{
+			Ref:   s.Ref,
+			Type:  s.Type,
+			Items: s.Items,
+		}
 	}
 
-	var responseRef *string
+	var respSchema *schemaStruct
 
 	if v.Response != nil {
-		respSchema := jsonschema.Reflect(v.Response)
-		*defs = append(*defs, respSchema.Definitions)
-		responseRef = &respSchema.Ref
+		s := jsonschema.Reflect(v.Response)
+		*defs = append(*defs, s.Definitions)
+		respSchema = &schemaStruct{
+			Ref:   s.Ref,
+			Type:  s.Type,
+			Items: s.Items,
+		}
 	}
 
 	return generatedApi{
-		Path:        strings.TrimPrefix(v.Path, "/"),
-		Desc:        v.Desc,
-		Method:      v.Method,
-		AuthSchema:  v.AuthSchema,
-		RequestRef:  requestRef,
-		ResponseRef: responseRef,
+		Path:       strings.TrimPrefix(v.Path, "/"),
+		Desc:       v.Desc,
+		Method:     v.Method,
+		AuthSchema: v.AuthSchema,
+		Request:    reqSchema,
+		Response:   respSchema,
 	}
 }
 
