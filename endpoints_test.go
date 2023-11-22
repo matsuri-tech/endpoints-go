@@ -33,6 +33,11 @@ type SampleHandler struct{}
 func (handler SampleHandler) GetWithQuery(c echo.Context) error {
 	return nil
 }
+
+func (handler SampleHandler) GetWithQueryWrapper(c echo.Context) (SampleModel, error) {
+	return SampleModel{}, nil
+}
+
 func NewSampleHandler() SampleHandler {
 	return SampleHandler{}
 }
@@ -63,7 +68,7 @@ func newRoute() *EchoWrapper {
 	)
 	samples := ew.Group("/samples")
 	sampleHandler := NewSampleHandler()
-	samples.GET("/:id", sampleHandler.GetWithQuery, Desc{
+	GwGET(samples, "/:id", sampleHandler.GetWithQueryWrapper, Desc{
 		Name:  "getSamplesWithQuery",
 		Query: "yearMonth=2021-01",
 		Desc:  "GET samples",
