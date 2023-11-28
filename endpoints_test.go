@@ -341,19 +341,6 @@ func TestEchoWrapper_Generate(t *testing.T) {
         "response": {
 		  "$ref": "#/$defs/GetAllSamplesOutput"
 		}
-      },
-      "getAllSamples": {
-        "authSchema": {
-          "header": "",
-          "type": ""
- 	    },
-        "desc": "get all samples",
-        "method": "GET",
-        "path": "samples",
-        "request": null,
-        "response": {
-		  "$ref": "#/$defs/GetAllSamplesOutput"
-		}
       }
     }
   },
