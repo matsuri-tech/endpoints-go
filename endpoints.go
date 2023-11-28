@@ -59,7 +59,7 @@ func (e *endpoints) generateJson() ([]byte, error) {
 			defs[k] = v
 		}
 	}
-	endpoints.Set("defs", defs)
+	endpoints.Set("$defs", defs)
 
 	var b bytes.Buffer
 	encoder := json.NewEncoder(&b)

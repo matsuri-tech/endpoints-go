@@ -408,7 +408,7 @@ func TestEchoWrapper_Generate(t *testing.T) {
       }
     }
   },
-  "defs": {
+  "$defs": {
 	"SampleModel": {
 	  "properties": {
 		"id": {
