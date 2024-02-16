@@ -1,8 +1,6 @@
 module github.com/matsuri-tech/endpoints-go
 
-go 1.21
-
-toolchain go1.21.1
+go 1.22
 
 require (
 	github.com/getkin/kin-openapi v0.120.0
