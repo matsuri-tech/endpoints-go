@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/getkin/kin-openapi v0.120.0
-	github.com/iancoleman/orderedmap v0.2.0
+	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.12.0
 	github.com/labstack/echo/v4 v4.1.14
 	github.com/stretchr/testify v1.8.4
