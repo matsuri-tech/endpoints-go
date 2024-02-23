@@ -1,6 +1,50 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
+  "timezone": "Asia/Tokyo",
+  "extends": ["config:base"],
+  "reviewers": ["0num4"],
+  "prConcurrentLimit": 2,
+  "prCreation": "not-pending",
+  "major": {
+    "stabilityDays": 7
+  },
+  "minor": {
+    "stabilityDays": 3
+  },
+  "patch": {
+    "stabilityDays": 1,
+    "automerge": true
+  },
+  "separateMinorPatch": true,
+  "ignoreDeps": [
+    "github.com/matsuri-tech/m2m-core",
+    "github.com/elastic/go-elasticsearch/v7"
+  ],
+  "customEnvVariables": {
+    "GIT_CONFIG_KEY_0": "url.\"ssh://git@github.com/matsuri-tech/\".insteadOf",
+    "GIT_CONFIG_VALUE_0": "https://github.com/matsuri-tech/"
+  },
+  "schedule": ["every weekday"],
+  "packageRules": [
+    {
+      "matchDatasources": ["golang-version"],
+      "rangeStrategy": "bump",
+      "automerge": true
+    },
+    {
+      "groupName": "High update frequency and low impact Node packages",
+      "matchPackageNames": ["aws-cdk"],
+      "schedule": ["after 12:00 on Monday"]
+    },
+    {
+      "groupName": "High update frequency and low impact Go packages",
+      "matchPackageNames": [
+        "google.golang.org/api",
+        "golang.org/x/oauth2",
+        "github.com/aws/aws-sdk-go",
+        "github.com/aws/aws-sdk-go/awssdk/v2"
+      ],
+      "schedule": ["after 12:00 on Monday"]
+    }
   ]
 }
