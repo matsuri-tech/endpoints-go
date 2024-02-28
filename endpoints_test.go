@@ -3,9 +3,10 @@ package endpoints
 import (
 	"bytes"
 	"encoding/json"
+	"testing"
+
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 type SampleModel struct {

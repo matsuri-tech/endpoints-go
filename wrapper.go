@@ -1,9 +1,10 @@
 package endpoints
 
 import (
-	"github.com/labstack/echo/v4"
 	"net/http"
 	"os"
+
+	"github.com/labstack/echo/v4"
 )
 
 // EchoWrapper に対応するメソッドが存在しないEchoの機能を使いたい場合に限り、
@@ -77,7 +78,7 @@ func (w *EchoWrapper) Generate(filename string) error {
 }
 
 func (w *EchoWrapper) GenerateOpenApiJson(filename string, config OpenApiGeneratorConfig) error {
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err
 	}
@@ -89,7 +90,7 @@ func (w *EchoWrapper) GenerateOpenApiJson(filename string, config OpenApiGenerat
 }
 
 func (w *EchoWrapper) GenerateOpenApi(filename string, config OpenApiGeneratorConfig) error {
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
 	if err != nil {
 		return err
 	}

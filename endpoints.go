@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/invopop/jsonschema"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/invopop/jsonschema"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"gopkg.in/yaml.v3"
