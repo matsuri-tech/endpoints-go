@@ -228,17 +228,18 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 			item = paths[path]
 		}
 
-		if api.Method == http.MethodGet {
+		switch api.Method {
+		case http.MethodGet:
 			item.Get = &operation
-		} else if api.Method == http.MethodPost {
+		case http.MethodPost:
 			item.Post = &operation
 			operation.RequestBody = &requestBodyAny
-		} else if api.Method == http.MethodPut {
+		case http.MethodPut:
 			item.Put = &operation
 			operation.RequestBody = &requestBodyAny
-		} else if api.Method == http.MethodDelete {
+		case http.MethodDelete:
 			item.Delete = &operation
-		} else if api.Method == http.MethodPatch {
+		case http.MethodPatch:
 			item.Patch = &operation
 			operation.RequestBody = &requestBodyAny
 		}
