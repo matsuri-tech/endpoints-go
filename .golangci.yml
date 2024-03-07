@@ -11,6 +11,11 @@ linters:
     - exhaustive
     - revive
     # - gosec
+linters-settings:
+  revive:
+    rules:
+      - name: var-naming
+        disabled: true
 issues:
   max-same-issues: 0
   exclude-rules:
