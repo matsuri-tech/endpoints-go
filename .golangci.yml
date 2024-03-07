@@ -9,5 +9,12 @@ linters:
     - gochecknoglobals
     - errorlint
     - exhaustive
+    - revive
+    # - gosec
 issues:
   max-same-issues: 0
+  exclude-rules:
+    # # Exclude some linters from running on tests files.
+    # - path: _test\.go
+    #   linters:
+    #     - revive
