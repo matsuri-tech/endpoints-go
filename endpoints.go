@@ -224,8 +224,8 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 		}
 
 		item := &openapi3.PathItem{}
-		if paths[path] != nil {
-			item = paths[path]
+		if paths.Value(path) != nil {
+			item = paths.Value(path)
 		}
 
 		if api.Method == http.MethodGet {
@@ -272,7 +272,7 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 			Title:       config.Title,
 			Description: config.Desc,
 		},
-		Paths:    paths,
+		Paths:    &paths,
 		Security: openapi3.SecurityRequirements{},
 		Servers:  servers,
 		Tags:     tags,
