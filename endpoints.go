@@ -243,7 +243,7 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 			operation.RequestBody = &requestBodyAny
 		}
 
-		paths[path] = item
+		paths.Set(path, item)
 	}
 
 	tags := openapi3.Tags{}
