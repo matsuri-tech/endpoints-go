@@ -194,16 +194,17 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 			OperationID: api.Name,
 			Parameters:  parameters,
 			RequestBody: nil,
-			Responses: openapi3.Responses{
-				"200": &openapi3.ResponseRef{
+			Responses: openapi3.NewResponses(
+				openapi3.WithStatus(200, &openapi3.ResponseRef{
+					Ref: "",
 					Value: &openapi3.Response{
 						Description: &description,
 						Headers:     nil,
 						Content:     nil,
 						Links:       nil,
 					},
-				},
-			},
+				}),
+			),
 			Callbacks:  nil,
 			Deprecated: false,
 			Security: &openapi3.SecurityRequirements{
@@ -224,8 +225,8 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 		}
 
 		item := &openapi3.PathItem{}
-		if paths[path] != nil {
-			item = paths[path]
+		if paths.Value(path) != nil {
+			item = paths.Value(path)
 		}
 
 		switch api.Method {
@@ -244,7 +245,7 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 			operation.RequestBody = &requestBodyAny
 		}
 
-		paths[path] = item
+		paths.Set(path, item)
 	}
 
 	tags := openapi3.Tags{}
@@ -273,7 +274,7 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 			Title:       config.Title,
 			Description: config.Desc,
 		},
-		Paths:    paths,
+		Paths:    &paths,
 		Security: openapi3.SecurityRequirements{},
 		Servers:  servers,
 		Tags:     tags,
