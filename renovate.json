@@ -28,8 +28,8 @@
   "packageRules": [
     {
       "matchDatasources": ["golang-version"],
-      "rangeStrategy": "bump",
-      "automerge": true
+      "matchUpdateTypes": ["patch"],
+      "enabled": false
     },
     {
       "groupName": "High update frequency and low impact Node packages",
