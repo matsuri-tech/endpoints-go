@@ -37,22 +37,20 @@ func (e *endpoints) addFrontends(frontends ...string) {
 }
 
 func (e *endpoints) validate() error {
-	// 重複したnameやpathのapiがないかチェックする
-	nameMap := make(map[string]struct{})
-	pathMap := make(map[string]struct{})
-
+	// 重複したnameと、重複したpathとmethodの組み合わせがないかチェック
+	names := map[string]struct{}{}
+	paths := map[string]struct{}{}
 	for _, v := range e.api {
-		if _, ok := nameMap[v.Name]; ok {
+		if _, ok := names[v.Name]; ok {
 			return fmt.Errorf("duplicate name: %s", v.Name)
 		}
-		nameMap[v.Name] = struct{}{}
+		names[v.Name] = struct{}{}
 
-		if _, ok := pathMap[v.Path]; ok {
-			return fmt.Errorf("duplicate path: %s", v.Path)
+		if _, ok := paths[v.Path+v.Method]; ok {
+			return fmt.Errorf("duplicate path and method: %s %s", v.Path, v.Method)
 		}
-		pathMap[v.Path] = struct{}{}
+		paths[v.Path+v.Method] = struct{}{}
 	}
-
 	return nil
 }
 
