@@ -55,10 +55,6 @@ func (e *endpoints) validate() error {
 }
 
 func (e *endpoints) generateJson() ([]byte, error) {
-	if err := e.validate(); err != nil {
-		return nil, err
-	}
-
 	endpoints := orderedmap.New()
 	for _, v := range e.env {
 		version := orderedmap.New()
@@ -102,6 +98,10 @@ func (e *endpoints) generateJson() ([]byte, error) {
 }
 
 func (e *endpoints) generate(filename string) error {
+	if err := e.validate(); err != nil {
+		return err
+	}
+
 	bs, err := e.generateJson()
 	if err != nil {
 		return err
