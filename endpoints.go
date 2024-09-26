@@ -36,6 +36,24 @@ func (e *endpoints) addFrontends(frontends ...string) {
 	e.frontends = append(e.frontends, frontends...)
 }
 
+func (e *endpoints) validate() error {
+	// 重複したnameと、重複したpathとmethodの組み合わせがないかチェック
+	names := map[string]struct{}{}
+	paths := map[string]struct{}{}
+	for _, v := range e.api {
+		if _, ok := names[v.Name]; ok {
+			return fmt.Errorf("duplicate name: %s", v.Name)
+		}
+		names[v.Name] = struct{}{}
+
+		if _, ok := paths[v.Path+v.Method]; ok {
+			return fmt.Errorf("duplicate path and method: %s %s", v.Path, v.Method)
+		}
+		paths[v.Path+v.Method] = struct{}{}
+	}
+	return nil
+}
+
 func (e *endpoints) generateJson() ([]byte, error) {
 	endpoints := orderedmap.New()
 	for _, v := range e.env {
@@ -80,6 +98,10 @@ func (e *endpoints) generateJson() ([]byte, error) {
 }
 
 func (e *endpoints) generate(filename string) error {
+	if err := e.validate(); err != nil {
+		return err
+	}
+
 	bs, err := e.generateJson()
 	if err != nil {
 		return err
