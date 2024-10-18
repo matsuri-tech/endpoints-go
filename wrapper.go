@@ -350,7 +350,8 @@ func (g *GroupWrapper) DELETETyped(path string, h echo.HandlerFunc, desc Desc, r
 
 // 詳細についてはEwGETを見よ
 func GwGET[Resp any](g *GroupWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	return g.GET(path, makeHandlerNoRequest(h), desc, m...)
+	var resp Resp
+	return g.GETTyped(path, makeHandlerNoRequest(h), desc, resp, m...)
 }
 
 // 詳細についてはEwGETを見よ

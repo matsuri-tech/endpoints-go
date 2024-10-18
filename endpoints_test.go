@@ -326,7 +326,9 @@ func TestEchoWrapper_Generate(t *testing.T) {
         "method": "GET",
         "path": "samples/:id?yearMonth=2021-01",
         "request": null,
-        "response": null
+        "response": {
+ 		  "$ref": "#/$defs/SampleModel"
+ 		}
       },
       "getSamplesWithQueryAnother": {
         "authSchema": {
@@ -373,7 +375,9 @@ func TestEchoWrapper_Generate(t *testing.T) {
           "header": ""
         },
         "request": null,
-        "response": null
+        "response": {
+          "$ref": "#/$defs/SampleModel"
+        }
       },
       "getSamplesWithQueryAnother": {
         "authSchema": {
