@@ -1,18 +1,22 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "timezone": "Asia/Tokyo",
-  "extends": ["config:base"],
-  "reviewers": ["0num4"],
+  "extends": [
+    "config:recommended"
+  ],
+  "reviewers": [
+    "0num4"
+  ],
   "prConcurrentLimit": 2,
   "prCreation": "not-pending",
   "major": {
-    "stabilityDays": 7
+    "minimumReleaseAge": "7 days"
   },
   "minor": {
-    "stabilityDays": 3
+    "minimumReleaseAge": "3 days"
   },
   "patch": {
-    "stabilityDays": 1,
+    "minimumReleaseAge": "1 day",
     "automerge": true
   },
   "separateMinorPatch": true,
@@ -24,17 +28,27 @@
     "GIT_CONFIG_KEY_0": "url.\"ssh://git@github.com/matsuri-tech/\".insteadOf",
     "GIT_CONFIG_VALUE_0": "https://github.com/matsuri-tech/"
   },
-  "schedule": ["every weekday"],
+  "schedule": [
+    "every weekday"
+  ],
   "packageRules": [
     {
-      "matchDatasources": ["golang-version"],
-      "matchUpdateTypes": ["patch"],
+      "matchDatasources": [
+        "golang-version"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "enabled": false
     },
     {
       "groupName": "High update frequency and low impact Node packages",
-      "matchPackageNames": ["aws-cdk"],
-      "schedule": ["after 12:00 on Monday"]
+      "matchPackageNames": [
+        "aws-cdk"
+      ],
+      "schedule": [
+        "after 12:00 on Monday"
+      ]
     },
     {
       "groupName": "High update frequency and low impact Go packages",
@@ -44,7 +58,9 @@
         "github.com/aws/aws-sdk-go",
         "github.com/aws/aws-sdk-go/awssdk/v2"
       ],
-      "schedule": ["after 12:00 on Monday"]
+      "schedule": [
+        "after 12:00 on Monday"
+      ]
     }
   ]
 }
