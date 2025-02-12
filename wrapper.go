@@ -145,8 +145,8 @@ func (w *EchoWrapper) PATCHTyped(path string, h echo.HandlerFunc, desc Desc, req
 	return w.Echo.PATCH(path, h, m...)
 }
 
-func (w *EchoWrapper) DELETETyped(path string, h echo.HandlerFunc, desc Desc, resp any, m ...echo.MiddlewareFunc) *echo.Route {
-	w.AddAPITyped(path, desc, "DELETE", nil, resp)
+func (w *EchoWrapper) DELETETyped(path string, h echo.HandlerFunc, desc Desc, req any, resp any, m ...echo.MiddlewareFunc) *echo.Route {
+	w.AddAPITyped(path, desc, "DELETE", req, resp)
 	return w.Echo.DELETE(path, h, m...)
 }
 
@@ -198,65 +198,122 @@ func makeHandlerNoContent[Req any](h func(ctx echo.Context, req Req) error) echo
 	}
 }
 
-// handlerを受け取ってGETエンドポイントを生やす関数
-// handlerの戻り値がnilではない時は、c.JSON(http.StatusOK, resp)として返す
-// handlerの戻り値がnilの場合は、c.NoContent(http.StatusOK)として返す
-// NOTE: Go1.20時点では、メソッドがtype parameterをもてないので関数として定義されている
+/*
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、GETのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+
+NOTE: Go1.20時点では、メソッドがtype parameterをもてないので関数として定義されている
+*/
 func EwGET[Resp any](w *EchoWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var resp Resp
 	return w.GETTyped(path, makeHandlerNoRequest(h), desc, resp, m...)
 }
 
-// 詳細についてはEwGETを見よ
-// 返すべきresponseがないケースでは、EwPOSTNoContentを使うこと
+/*
+func(echo.Context, Req) (Resp, error)の型をもつhandlerを受け取り、POSTのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして200、bodyとしてJSONで返す。
+
+Requestを受け取らないケースでは EwPOSTNoRequest を使い、Responseを返さないケースでは EwPOSTNoContent を使うこと。
+*/
 func EwPOST[Req any, Resp any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	var resp Resp
 	return w.POSTTyped(path, makeHandler(h), desc, req, resp, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、POSTのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+*/
+func EwPOSTNoRequest[Resp any](w *EchoWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	var resp Resp
+	return w.POSTTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+}
+
+/*
+func(echo.Context, Req) errorの型をもつhandlerを受け取り、POSTのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして204を返す。
+*/
 func EwPOSTNoContent[Req any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	return w.POSTTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
 }
 
-// 詳細についてはEwGETを見よ
-// 返すべきresponseがないケースでは、EwPUTNoContentを使うこと
+/*
+func(echo.Context, Req) (Resp, error)の型をもつhandlerを受け取り、PUTのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして200、bodyとしてJSONで返す。
+
+Requestを受け取らないケースでは EwPUTNoRequest を使い、Responseを返さないケースでは EwPUTNoContent を使うこと。
+*/
 func EwPUT[Req any, Resp any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	var resp Resp
 	return w.PUTTyped(path, makeHandler(h), desc, req, resp, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、PUTのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+*/
+func EwPUTNoRequest[Resp any](w *EchoWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	var resp Resp
+	return w.PUTTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+}
+
+/*
+func(echo.Context, Req) errorの型をもつhandlerを受け取り、PUTのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして204を返す。
+*/
 func EwPUTNoContent[Req any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	return w.PUTTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+func(echo.Context, Req) (Resp, error)の型をもつhandlerを受け取り、PATCHのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして200、bodyとしてJSONで返す。
+
+Requestを受け取らないケースでは EwPATCHNoRequest を使い、Responseを返さないケースでは EwPATCHNoContent を使うこと。
+*/
 func EwPATCH[Req any, Resp any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	var resp Resp
 	return w.PATCHTyped(path, makeHandler(h), desc, req, resp, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、PATCHのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+*/
+func EwPATCHNoRequest[Resp any](w *EchoWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	var resp Resp
+	return w.PATCHTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+}
+
+/*
+func(echo.Context, Req) errorの型をもつhandlerを受け取り、PATCHのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして204を返す。
+*/
 func EwPATCHNoContent[Req any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	return w.PATCHTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
 }
 
-// 詳細についてはEwGETを見よ
-func EwDELETE[Resp any](w *EchoWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+/*
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、DELETEのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+
+Requestを受け取らないケースでは EwDELETENoRequest を使い、Responseを返さないケースでは EwDELETENoContent を使うこと。
+*/
+func EwDELETE[Req any, Resp any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	var req Req
 	var resp Resp
-	return w.DELETETyped(path, makeHandlerNoRequest(h), desc, resp, m...)
+	return w.DELETETyped(path, makeHandler(h), desc, req, resp, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、DELETEのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+*/
+func EwDELETENoRequest[Resp any](w *EchoWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	var resp Resp
+	return w.DELETETyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+}
+
+/*
+func(echo.Context, Req) errorの型をもつhandlerを受け取り、DELETEのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして204を返す。
+*/
 func EwDELETENoContent[Req any](w *EchoWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
-	return w.DELETETyped(path, makeHandlerNoContent(h), desc, nil, m...)
+	var req Req
+	return w.DELETETyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
 }
 
 func (w *EchoWrapper) Group(prefix string, m ...echo.MiddlewareFunc) *GroupWrapper {
@@ -359,58 +416,144 @@ func (g *GroupWrapper) DELETETyped(path string, h echo.HandlerFunc, desc Desc, r
 	return g.Group.DELETE(path, h, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+EwGET のGroup版
+
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、GETのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+
+NOTE: Go1.20時点では、メソッドがtype parameterをもてないので関数として定義されている
+*/
 func GwGET[Resp any](g *GroupWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var resp Resp
 	return g.GETTyped(path, makeHandlerNoRequest(h), desc, resp, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+EwPOST のGroup版
+
+func(echo.Context, Req) (Resp, error)の型をもつhandlerを受け取り、POSTのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして200、bodyとしてJSONで返す。
+
+Requestを受け取らないケースでは GwPOSTNoRequest を使い、Responseを返さないケースでは GwPOSTNoContent を使うこと。
+*/
 func GwPOST[Req any, Resp any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	var resp Resp
 	return g.POSTTyped(path, makeHandler(h), desc, req, resp, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+EwPOSTNoRequest のGroup版
+
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、POSTのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+*/
+func GwPOSTNoRequest[Resp any](g *GroupWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	var resp Resp
+	return g.POSTTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+}
+
+/*
+EwPOSTNoContent のGroup版
+
+func(echo.Context, Req) errorの型をもつhandlerを受け取り、POSTのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして204を返す。
+*/
 func GwPOSTNoContent[Req any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	return g.POSTTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+EwPUT のGroup版
+
+func(echo.Context, Req) (Resp, error)の型をもつhandlerを受け取り、PUTのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして200、bodyとしてJSONで返す。
+
+Requestを受け取らないケースでは GwPUTNoRequest を使い、Responseを返さないケースでは GwPUTNoContent を使うこと。
+*/
 func GwPUT[Req any, Resp any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	var resp Resp
 	return g.PUTTyped(path, makeHandler(h), desc, req, resp, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+EwPUTNoRequest のGroup版
+
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、PUTのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+*/
+func GwPUTNoRequest[Resp any](g *GroupWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	var resp Resp
+	return g.PUTTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+}
+
+/*
+EwPUTNoContent のGroup版
+
+func(echo.Context, Req) errorの型をもつhandlerを受け取り、PUTのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして204を返す。
+*/
 func GwPUTNoContent[Req any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	return g.PUTTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+EwPATCH のGroup版
+
+func(echo.Context, Req) (Resp, error)の型をもつhandlerを受け取り、PATCHのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして200、bodyとしてJSONで返す。
+
+Requestを受け取らないケースでは GwPATCHNoRequest を使い、Responseを返さないケースでは GwPATCHNoContent を使うこと。
+*/
 func GwPATCH[Req any, Resp any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	var resp Resp
 	return g.PATCHTyped(path, makeHandler(h), desc, req, resp, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+EwPATCHNoRequest のGroup版
+
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、PATCHのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+*/
+func GwPATCHNoRequest[Resp any](g *GroupWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	var resp Resp
+	return g.PATCHTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+}
+
+/*
+EwPATCHNoContent のGroup版
+
+func(echo.Context, Req) errorの型をもつhandlerを受け取り、PATCHのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして204を返す。
+*/
 func GwPATCHNoContent[Req any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var req Req
 	return g.PATCHTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+EwDELETE のGroup版
+
+func(echo.Context, Req) (Resp, error)の型をもつhandlerを受け取り、DELETEのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして200、bodyとしてJSONで返す。
+
+Requestを受け取らないケースでは GwDELETENoRequest を使い、Responseを返さないケースでは GwDELETENoContent を使うこと。
+*/
 func GwDELETE[Resp any](g *GroupWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	var resp Resp
 	return g.DELETETyped(path, makeHandlerNoRequest(h), desc, resp, m...)
 }
 
-// 詳細についてはEwGETを見よ
+/*
+EwDELETENoRequest のGroup版
+
+func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、DELETEのAPIを生やす。Responseはstatusとして200、bodyとしてJSONで返す。
+*/
+func GwDELETENoRequest[Resp any](g *GroupWrapper, path string, h func(ctx echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
+	var resp Resp
+	return g.DELETETyped(path, makeHandlerNoRequest(h), desc, resp, m...)
+}
+
+/*
+EwDELETENoContent のGroup版
+
+func(echo.Context, Req) errorの型をもつhandlerを受け取り、DELETEのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして204を返す。
+*/
 func GwDELETENoContent[Req any](g *GroupWrapper, path string, h func(ctx echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) *echo.Route {
 	return g.DELETETyped(path, makeHandlerNoContent(h), desc, nil, m...)
 }
