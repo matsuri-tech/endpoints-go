@@ -1,0 +1,95 @@
+name: Create Release Note
+
+on:
+  schedule:
+    - cron: "0 5 * * 2"
+  workflow_dispatch:
+
+jobs:
+  check-commits:
+    runs-on: ubuntu-latest
+    outputs:
+      has_new_commits: ${{ steps.check.outputs.has_new_commits }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for new commits
+        id: check
+        run: |
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          COMMIT_COUNT=$(git rev-list $LAST_TAG..HEAD --count)
+          echo "has_new_commits=$([ $COMMIT_COUNT -gt 0 ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "No new commits since last tag ($LAST_TAG). Skipping release PR creation."
+
+  create-release-pr:
+    needs: check-commits
+    if: needs.check-commits.outputs.has_new_commits == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get current version
+        id: version
+        run: |
+          CURRENT_VERSION=$(cat .version)
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Determine next version
+        id: next_version
+        run: |
+          CURRENT_VERSION=$(cat .version)
+          IFS='.' read -r major minor patch <<< "$CURRENT_VERSION"
+
+          # 前回のタグ以降のコミットを取得
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"%s")
+
+          # バージョンアップの種類を判定
+          VERSION_BUMP="patch"
+
+          while IFS= read -r commit; do
+            # BREAKING CHANGE または feat! で始まるコミットがあればメジャーバージョンアップ
+            if [[ $commit =~ ^(feat!|.*BREAKING CHANGE:) ]]; then
+              VERSION_BUMP="major"
+              break
+            # feat: で始まるコミットがあればマイナーバージョンアップ
+            elif [[ $commit =~ ^feat: ]] && [ "$VERSION_BUMP" != "major" ]; then
+              VERSION_BUMP="minor"
+            fi
+          done <<< "$COMMITS"
+
+          # バージョンを更新
+          case $VERSION_BUMP in
+            "major")
+              NEXT_VERSION="$((major + 1)).0.0"
+              ;;
+            "minor")
+              NEXT_VERSION="$major.$((minor + 1)).0"
+              ;;
+            "patch")
+              NEXT_VERSION="$major.$minor.$((patch + 1))"
+              ;;
+          esac
+
+          echo "version_bump=$VERSION_BUMP" >> $GITHUB_OUTPUT
+          echo "next_version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update version file
+        run: |
+          echo "${{ steps.next_version.outputs.next_version }}" > .version
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: bump version to ${{ steps.next_version.outputs.next_version }}"
+          title: "Release Note: v${{ steps.next_version.outputs.next_version }}"
+          branch: release/v${{ steps.next_version.outputs.next_version }}
+          base: master
+          reviewers: hrdtbs
+          labels: release
+          delete-branch: true
