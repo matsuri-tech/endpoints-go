@@ -176,7 +176,7 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 						In:          "query",
 						Description: description,
 						Required:    true,
-						Schema:      &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "string"}},
+						Schema:      &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{openapi3.TypeString}}},
 					},
 				})
 			}
@@ -197,7 +197,7 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 					In:          "path",
 					Description: description,
 					Required:    true,
-					Schema:      &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "string"}},
+					Schema:      &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{openapi3.TypeString}}},
 				},
 			})
 		}
@@ -240,7 +240,7 @@ func (e *endpoints) generateOpenApiSchema(config OpenApiGeneratorConfig) (openap
 				Description: description,
 				Content: openapi3.Content{
 					"application/json": &openapi3.MediaType{
-						Schema: &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "object"}},
+						Schema: &openapi3.SchemaRef{Value: &openapi3.Schema{Type: &openapi3.Types{openapi3.TypeObject}}},
 					},
 				},
 			},
