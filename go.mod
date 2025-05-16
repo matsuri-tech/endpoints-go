@@ -8,8 +8,8 @@ require (
 	github.com/getkin/kin-openapi v0.131.0
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.12.0
-	github.com/labstack/echo/v4 v4.11.4
-	github.com/stretchr/testify v1.9.0
+	github.com/labstack/echo/v4 v4.13.3
+	github.com/stretchr/testify v1.10.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -33,7 +33,7 @@ require (
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
 	golang.org/x/crypto v0.31.0 // indirect
-	golang.org/x/net v0.23.0 // indirect
+	golang.org/x/net v0.33.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 )
