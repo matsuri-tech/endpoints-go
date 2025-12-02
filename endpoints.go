@@ -129,7 +129,8 @@ type OpenApiGeneratorConfig struct {
 	AuthHeader string
 }
 
-// isEmptySchema returns true if the schema is "empty" (i.e., represents `false` for additionalProperties)
+// isEmptySchema returns true if the schema is "empty" (i.e., has no type, properties, or constraints).
+// In JSON Schema, this typically represents additionalProperties: false when used in that context.
 func isEmptySchema(s *jsonschema.Schema) bool {
 	if s == nil {
 		return false
@@ -184,12 +185,10 @@ func convertJSONSchemaDefToOpenAPI(js *jsonschema.Schema, defs jsonschema.Defini
 		switch js.Type {
 		case "string":
 			openAPIType = openapi3.TypeString
-		case "integer", "number":
-			if js.Type == "integer" {
-				openAPIType = openapi3.TypeInteger
-			} else {
-				openAPIType = openapi3.TypeNumber
-			}
+		case "integer":
+			openAPIType = openapi3.TypeInteger
+		case "number":
+			openAPIType = openapi3.TypeNumber
 		case "boolean":
 			openAPIType = openapi3.TypeBoolean
 		case "array":
@@ -295,10 +294,13 @@ func normalizePathAndExtractParameters(apiPath string, description string) (stri
 	if strings.Contains(path, "?") {
 		splits := strings.Split(path, "?")
 		path = splits[0]
-		queryStrings := strings.TrimPrefix(splits[1], "?")
+		queryStrings := splits[1]
 
 		for _, frag := range strings.Split(queryStrings, "&") {
 			keyValue := strings.Split(frag, "=")
+			if len(keyValue) < 2 || keyValue[0] == "" {
+				continue
+			}
 			parameters = append(parameters, &openapi3.ParameterRef{
 				Value: &openapi3.Parameter{
 					Name:        keyValue[0],
@@ -317,7 +319,7 @@ func normalizePathAndExtractParameters(apiPath string, description string) (stri
 		}
 		name := strings.TrimPrefix(frag, ":")
 
-		path = strings.ReplaceAll(path, frag, fmt.Sprintf("{%v}", name))
+		path = strings.Replace(path, frag, fmt.Sprintf("{%v}", name), 1)
 
 		parameters = append(parameters, &openapi3.ParameterRef{
 			Value: &openapi3.Parameter{
@@ -333,7 +335,8 @@ func normalizePathAndExtractParameters(apiPath string, description string) (stri
 	return path, parameters
 }
 
-// generateSchemaRef generates an OpenAPI schema reference from a Go type
+// generateSchemaRef generates an OpenAPI schema reference from a Go type.
+// Note: This function mutates both allDefs and openAPISchemas by adding newly discovered type definitions.
 func generateSchemaRef(typ any, allDefs jsonschema.Definitions, openAPISchemas openapi3.Schemas) *openapi3.SchemaRef {
 	if typ == nil {
 		return nil
