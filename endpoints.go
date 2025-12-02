@@ -129,6 +129,41 @@ type OpenApiGeneratorConfig struct {
 	AuthHeader string
 }
 
+// isEmptySchema returns true if the schema is "empty" (i.e., represents `false` for additionalProperties)
+func isEmptySchema(s *jsonschema.Schema) bool {
+	if s == nil {
+		return false
+	}
+	// Check if all fields that would indicate a schema are empty
+	return s.Type == "" &&
+		(s.Properties == nil || s.Properties.Len() == 0) &&
+		s.Items == nil &&
+		len(s.Required) == 0 &&
+		s.Ref == "" &&
+		s.Enum == nil &&
+		s.OneOf == nil &&
+		s.AnyOf == nil &&
+		s.AllOf == nil
+}
+
+// convertJSONSchemaToSchemaRef converts a JSON Schema to OpenAPI SchemaRef, handling $ref properly
+func convertJSONSchemaToSchemaRef(js *jsonschema.Schema, defs jsonschema.Definitions) *openapi3.SchemaRef {
+	if js == nil {
+		return nil
+	}
+
+	// If there's a $ref, convert the path and return a SchemaRef with Ref field
+	if js.Ref != "" {
+		ref := strings.Replace(js.Ref, "#/$defs/", "#/components/schemas/", 1)
+		return &openapi3.SchemaRef{Ref: ref}
+	}
+
+	// Otherwise, convert the schema and return a SchemaRef with Value field
+	return &openapi3.SchemaRef{
+		Value: convertJSONSchemaDefToOpenAPI(js, defs),
+	}
+}
+
 // convertJSONSchemaDefToOpenAPI converts a single JSON Schema definition to OpenAPI Schema
 func convertJSONSchemaDefToOpenAPI(js *jsonschema.Schema, defs jsonschema.Definitions) *openapi3.Schema {
 	if js == nil {
@@ -137,12 +172,9 @@ func convertJSONSchemaDefToOpenAPI(js *jsonschema.Schema, defs jsonschema.Defini
 
 	schema := &openapi3.Schema{}
 
-	// Convert $ref - if there's a ref, we return a schema with just the ref
-	// The actual schema will be in Components.Schemas
+	// Convert $ref - if there's a ref, we return an empty schema
+	// The actual ref handling happens at the SchemaRef level
 	if js.Ref != "" {
-		// For refs, we don't set anything else - the ref will be used in SchemaRef
-		// This function returns the schema value, not the ref
-		// The ref conversion happens at the SchemaRef level
 		return schema
 	}
 
@@ -174,17 +206,13 @@ func convertJSONSchemaDefToOpenAPI(js *jsonschema.Schema, defs jsonschema.Defini
 	if js.Properties != nil && js.Properties.Len() > 0 {
 		schema.Properties = make(openapi3.Schemas)
 		for pair := js.Properties.Oldest(); pair != nil; pair = pair.Next() {
-			schema.Properties[pair.Key] = &openapi3.SchemaRef{
-				Value: convertJSONSchemaDefToOpenAPI(pair.Value, defs),
-			}
+			schema.Properties[pair.Key] = convertJSONSchemaToSchemaRef(pair.Value, defs)
 		}
 	}
 
 	// Convert items (for arrays)
 	if js.Items != nil {
-		schema.Items = &openapi3.SchemaRef{
-			Value: convertJSONSchemaDefToOpenAPI(js.Items, defs),
-		}
+		schema.Items = convertJSONSchemaToSchemaRef(js.Items, defs)
 	}
 
 	// Convert required fields
@@ -193,14 +221,21 @@ func convertJSONSchemaDefToOpenAPI(js *jsonschema.Schema, defs jsonschema.Defini
 	}
 
 	// Convert additionalProperties
-	// In JSON Schema, additionalProperties is a *jsonschema.Schema
+	// In JSON Schema, additionalProperties can be a boolean (false) or a Schema
 	// In OpenAPI, it's represented as AdditionalProperties with Has and Schema fields
 	if js.AdditionalProperties != nil {
-		// Convert the schema
-		schema.AdditionalProperties = openapi3.AdditionalProperties{
-			Schema: &openapi3.SchemaRef{
-				Value: convertJSONSchemaDefToOpenAPI(js.AdditionalProperties, defs),
-			},
+		// If AdditionalProperties is an "empty" schema, treat as false (disallowed)
+		if isEmptySchema(js.AdditionalProperties) {
+			falseVal := false
+			schema.AdditionalProperties = openapi3.AdditionalProperties{
+				Has:    &falseVal,
+				Schema: nil,
+			}
+		} else {
+			// Otherwise, convert the schema
+			schema.AdditionalProperties = openapi3.AdditionalProperties{
+				Schema: convertJSONSchemaToSchemaRef(js.AdditionalProperties, defs),
+			}
 		}
 	}
 

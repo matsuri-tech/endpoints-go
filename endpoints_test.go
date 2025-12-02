@@ -138,7 +138,7 @@ func TestEchoWrapper_GenerateOpenApi(t *testing.T) {
   "components": {
     "schemas": {
       "CreateSampleInput": {
-        "additionalProperties": {},
+        "additionalProperties": false,
         "properties": {
           "created_at": {
             "type": "integer"
@@ -154,7 +154,7 @@ func TestEchoWrapper_GenerateOpenApi(t *testing.T) {
         "type": "object"
       },
       "CreateSampleOutput": {
-        "additionalProperties": {},
+        "additionalProperties": false,
         "properties": {
           "id": {
             "type": "string"
@@ -166,10 +166,12 @@ func TestEchoWrapper_GenerateOpenApi(t *testing.T) {
         "type": "object"
       },
       "GetAllSamplesOutput": {
-        "additionalProperties": {},
+        "additionalProperties": false,
         "properties": {
           "samples": {
-            "items": {},
+            "items": {
+              "$ref": "#/components/schemas/SampleModel"
+            },
             "type": "array"
           },
           "total": {
@@ -183,7 +185,7 @@ func TestEchoWrapper_GenerateOpenApi(t *testing.T) {
         "type": "object"
       },
       "SampleModel": {
-        "additionalProperties": {},
+        "additionalProperties": false,
         "properties": {
           "created_at": {
             "type": "integer"
