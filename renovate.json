@@ -1,8 +1,13 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "timezone": "Asia/Tokyo",
-  "extends": ["config:recommended", ":configMigration"],
-  "reviewers": ["hrdtbs"],
+  "extends": [
+    "config:recommended",
+    ":configMigration"
+  ],
+  "reviewers": [
+    "hrdtbs"
+  ],
   "prConcurrentLimit": 2,
   "prCreation": "not-pending",
   "major": {
@@ -20,17 +25,27 @@
     "github.com/matsuri-tech/m2m-core",
     "github.com/elastic/go-elasticsearch/v7"
   ],
-  "schedule": ["every weekday"],
+  "schedule": [
+    "every weekday"
+  ],
   "packageRules": [
     {
-      "matchDatasources": ["golang-version"],
-      "matchUpdateTypes": ["patch"],
+      "matchDatasources": [
+        "golang-version"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
       "enabled": false
     },
     {
       "groupName": "High update frequency and low impact Node packages",
-      "matchPackageNames": ["aws-cdk"],
-      "schedule": ["after 12:00 on Monday"]
+      "matchPackageNames": [
+        "aws-cdk"
+      ],
+      "schedule": [
+        "after 12:00 on Monday"
+      ]
     },
     {
       "groupName": "High update frequency and low impact Go packages",
@@ -40,7 +55,19 @@
         "github.com/aws/aws-sdk-go",
         "github.com/aws/aws-sdk-go/awssdk/v2"
       ],
-      "schedule": ["after 12:00 on Monday"]
+      "schedule": [
+        "after 12:00 on Monday"
+      ]
+    },
+    {
+      "matchDepTypes": [
+        "action"
+      ],
+      "pinDigests": true,
+      "matchPackageNames": [
+        "!actions/{/,}**",
+        "!matsuri-tech/{/,}**"
+      ]
     }
   ]
 }
