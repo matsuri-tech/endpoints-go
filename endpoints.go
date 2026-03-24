@@ -838,12 +838,9 @@ func applyRenameToRef(ref string, renames map[string]string) string {
 	return ref
 }
 
-// mergeDefs merges multiple defsEntry slices, detecting and resolving name collisions.
-// When two different types share the same $defs key name, both are renamed to qualified names
-// (package path segments + type name, e.g. "WebRequestsPrice").
-// Returns merged definitions and typeToFinalName mapping each renamed type to its new name.
-func mergeDefs(entries []defsEntry) (jsonschema.Definitions, map[reflect.Type]string) {
-	// Pass 1: Detect all name collisions by collecting unique types per short name
+// detectCollisions collects unique reflect.Type values per $defs short name across all entries.
+// Returns a map from short name to the distinct types that share that name.
+func detectCollisions(entries []defsEntry) map[string][]reflect.Type {
 	typesByShortName := make(map[string][]reflect.Type)
 	for _, entry := range entries {
 		for shortName, t := range entry.typeReg {
@@ -859,10 +856,17 @@ func mergeDefs(entries []defsEntry) (jsonschema.Definitions, map[reflect.Type]st
 			}
 		}
 	}
+	return typesByShortName
+}
 
-	// Build typeToFinalName for collision-involved types
+// mergeDefs merges multiple defsEntry slices, detecting and resolving name collisions.
+// When two different types share the same $defs key name, both are renamed to qualified names
+// (package path segments + type name, e.g. "WebRequestsPrice").
+// Returns merged definitions and typeToFinalName mapping each renamed type to its new name.
+func mergeDefs(entries []defsEntry) (jsonschema.Definitions, map[reflect.Type]string) {
+	// Pass 1: Build typeToFinalName for collision-involved types
 	typeToFinalName := make(map[reflect.Type]string)
-	for _, types := range typesByShortName {
+	for _, types := range detectCollisions(entries) {
 		if len(types) > 1 {
 			for _, t := range types {
 				typeToFinalName[t] = qualifiedTypeName(t)

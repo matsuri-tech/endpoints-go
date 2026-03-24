@@ -11,6 +11,7 @@ import (
 	"github.com/matsuri-tech/endpoints-go/testfixture/collision_a"
 	"github.com/matsuri-tech/endpoints-go/testfixture/collision_b"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type SampleModel struct {
@@ -684,7 +685,8 @@ func TestMergeDefs_NameCollision(t *testing.T) {
 	err = json.Unmarshal(actual, &result)
 	assert.NoError(t, err)
 
-	defs := result["$defs"].(map[string]interface{})
+	defs, ok := result["$defs"].(map[string]interface{})
+	require.True(t, ok, "$defs should be a map")
 
 	// Unqualified "Price" should not exist — it was renamed to avoid collision
 	assert.NotContains(t, defs, "Price", "ambiguous 'Price' should have been renamed")
@@ -697,13 +699,13 @@ func TestMergeDefs_NameCollision(t *testing.T) {
 
 	// RequestBody doesn't collide so it keeps its original name
 	requestBodyDef, ok := defs["RequestBody"].(map[string]interface{})
-	assert.True(t, ok, "RequestBody should exist in $defs with original name")
-	if ok {
-		properties := requestBodyDef["properties"].(map[string]interface{})
-		priceProp := properties["price"].(map[string]interface{})
-		// The price $ref should point to the qualified name of collision_a.Price
-		assert.Equal(t, "#/$defs/"+pkg1QualName, priceProp["$ref"])
-	}
+	require.True(t, ok, "RequestBody should exist in $defs with original name")
+	properties, ok := requestBodyDef["properties"].(map[string]interface{})
+	require.True(t, ok, "RequestBody should have properties")
+	priceProp, ok := properties["price"].(map[string]interface{})
+	require.True(t, ok, "RequestBody.price should be a map")
+	// The price $ref should point to the qualified name of collision_a.Price
+	assert.Equal(t, "#/$defs/"+pkg1QualName, priceProp["$ref"])
 }
 
 // patchSalesCurrencyType simulates a uint-based type whose MarshalJSON returns a string.
@@ -738,11 +740,15 @@ func TestRegisterSchemaOverride(t *testing.T) {
 	actualBefore, err := e.generateJson()
 	assert.NoError(t, err)
 	var resultBefore map[string]interface{}
-	json.Unmarshal(actualBefore, &resultBefore)
-	defsBefore := resultBefore["$defs"].(map[string]interface{})
-	patchInputBefore := defsBefore["patchSalesInput"].(map[string]interface{})
-	propsBefore := patchInputBefore["properties"].(map[string]interface{})
-	currencyBefore := propsBefore["currency"].(map[string]interface{})
+	require.NoError(t, json.Unmarshal(actualBefore, &resultBefore))
+	defsBefore, ok := resultBefore["$defs"].(map[string]interface{})
+	require.True(t, ok)
+	patchInputBefore, ok := defsBefore["patchSalesInput"].(map[string]interface{})
+	require.True(t, ok)
+	propsBefore, ok := patchInputBefore["properties"].(map[string]interface{})
+	require.True(t, ok)
+	currencyBefore, ok := propsBefore["currency"].(map[string]interface{})
+	require.True(t, ok)
 	assert.Equal(t, "integer", currencyBefore["type"], "without override, uint-based type should be integer")
 
 	// Register override: patchSalesCurrencyType should appear as "string"
@@ -751,10 +757,14 @@ func TestRegisterSchemaOverride(t *testing.T) {
 	actualAfter, err := e.generateJson()
 	assert.NoError(t, err)
 	var resultAfter map[string]interface{}
-	json.Unmarshal(actualAfter, &resultAfter)
-	defsAfter := resultAfter["$defs"].(map[string]interface{})
-	patchInputAfter := defsAfter["patchSalesInput"].(map[string]interface{})
-	propsAfter := patchInputAfter["properties"].(map[string]interface{})
-	currencyAfter := propsAfter["currency"].(map[string]interface{})
+	require.NoError(t, json.Unmarshal(actualAfter, &resultAfter))
+	defsAfter, ok := resultAfter["$defs"].(map[string]interface{})
+	require.True(t, ok)
+	patchInputAfter, ok := defsAfter["patchSalesInput"].(map[string]interface{})
+	require.True(t, ok)
+	propsAfter, ok := patchInputAfter["properties"].(map[string]interface{})
+	require.True(t, ok)
+	currencyAfter, ok := propsAfter["currency"].(map[string]interface{})
+	require.True(t, ok)
 	assert.Equal(t, "string", currencyAfter["type"], "with override, patchSalesCurrencyType should be string")
 }
