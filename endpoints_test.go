@@ -3,9 +3,13 @@ package endpoints
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 	"testing"
 
+	"github.com/invopop/jsonschema"
 	"github.com/labstack/echo/v4"
+	"github.com/matsuri-tech/endpoints-go/internal/testpkg1"
+	"github.com/matsuri-tech/endpoints-go/internal/testpkg2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -650,4 +654,107 @@ func TestEchoWrapper_Generate(t *testing.T) {
 }`)
 
 	assert.JSONEqf(t, string(expected), string(actual), string(actual))
+}
+
+// TestMergeDefs_NameCollision verifies that when two types from different packages
+// share the same name, they are renamed to qualified names in $defs.
+func TestMergeDefs_NameCollision(t *testing.T) {
+	e := endpoints{}
+	e.addEnv(Env{
+		Version: "v1",
+		Domain: Domain{
+			Local: "http://localhost:8080",
+			Dev:   "https://dev.example.com",
+			Prod:  "https://example.com",
+		},
+	})
+	// Both request and response types reference a type named "Price" but from different packages
+	e.addAPI(API{
+		Name:     "createOrder",
+		Path:     "/orders",
+		Method:   "POST",
+		Request:  testpkg1.RequestBody{},
+		Response: testpkg2.ResponseBody{},
+	})
+
+	actual, err := e.generateJson()
+	assert.NoError(t, err)
+
+	var result map[string]interface{}
+	err = json.Unmarshal(actual, &result)
+	assert.NoError(t, err)
+
+	defs := result["$defs"].(map[string]interface{})
+
+	// Unqualified "Price" should not exist — it was renamed to avoid collision
+	assert.NotContains(t, defs, "Price", "ambiguous 'Price' should have been renamed")
+
+	// Both qualified names should exist
+	pkg1QualName := qualifiedTypeName(reflect.TypeOf(testpkg1.Price{}))
+	pkg2QualName := qualifiedTypeName(reflect.TypeOf(testpkg2.Price{}))
+	assert.Contains(t, defs, pkg1QualName, "qualified name for testpkg1.Price should exist")
+	assert.Contains(t, defs, pkg2QualName, "qualified name for testpkg2.Price should exist")
+
+	// RequestBody doesn't collide so it keeps its original name
+	requestBodyDef, ok := defs["RequestBody"].(map[string]interface{})
+	assert.True(t, ok, "RequestBody should exist in $defs with original name")
+	if ok {
+		properties := requestBodyDef["properties"].(map[string]interface{})
+		priceProp := properties["price"].(map[string]interface{})
+		// The price $ref should point to the qualified name of testpkg1.Price
+		assert.Equal(t, "#/$defs/"+pkg1QualName, priceProp["$ref"])
+	}
+}
+
+// patchSalesCurrencyType simulates a uint-based type whose MarshalJSON returns a string.
+// Defined at package level so reflect.TypeOf works correctly.
+type patchSalesCurrencyType uint
+
+type patchSalesInput struct {
+	Currency patchSalesCurrencyType `json:"currency"`
+}
+
+// TestRegisterSchemaOverride verifies that RegisterSchemaOverride correctly overrides
+// the generated schema for a specific type, including primitive-based named types
+// that are inlined (not added to $defs) by default.
+func TestRegisterSchemaOverride(t *testing.T) {
+	e := endpoints{}
+	e.addEnv(Env{
+		Version: "v1",
+		Domain: Domain{
+			Local: "http://localhost:8080",
+			Dev:   "https://dev.example.com",
+			Prod:  "https://example.com",
+		},
+	})
+	e.addAPI(API{
+		Name:    "patchSales",
+		Path:    "/sales",
+		Method:  "PATCH",
+		Request: patchSalesInput{},
+	})
+
+	// Without override: patchSalesCurrencyType (uint) is inlined as "integer"
+	actualBefore, err := e.generateJson()
+	assert.NoError(t, err)
+	var resultBefore map[string]interface{}
+	json.Unmarshal(actualBefore, &resultBefore)
+	defsBefore := resultBefore["$defs"].(map[string]interface{})
+	patchInputBefore := defsBefore["patchSalesInput"].(map[string]interface{})
+	propsBefore := patchInputBefore["properties"].(map[string]interface{})
+	currencyBefore := propsBefore["currency"].(map[string]interface{})
+	assert.Equal(t, "integer", currencyBefore["type"], "without override, uint-based type should be integer")
+
+	// Register override: patchSalesCurrencyType should appear as "string"
+	e.RegisterSchemaOverride(reflect.TypeOf(patchSalesCurrencyType(0)), &jsonschema.Schema{Type: "string"})
+
+	actualAfter, err := e.generateJson()
+	assert.NoError(t, err)
+	var resultAfter map[string]interface{}
+	json.Unmarshal(actualAfter, &resultAfter)
+	defsAfter := resultAfter["$defs"].(map[string]interface{})
+	patchInputAfter := defsAfter["patchSalesInput"].(map[string]interface{})
+	propsAfter := patchInputAfter["properties"].(map[string]interface{})
+	currencyAfter := propsAfter["currency"].(map[string]interface{})
+	assert.Equal(t, "string", currencyAfter["type"], "with override, patchSalesCurrencyType should be string")
 }
