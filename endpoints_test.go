@@ -692,10 +692,10 @@ func TestMergeDefs_NameCollision(t *testing.T) {
 	assert.NotContains(t, defs, "Price", "ambiguous 'Price' should have been renamed")
 
 	// Both qualified names should exist
-	pkg1QualName := qualifiedTypeName(reflect.TypeOf(collision_a.Price{}))
-	pkg2QualName := qualifiedTypeName(reflect.TypeOf(collision_b.Price{}))
-	assert.Contains(t, defs, pkg1QualName, "qualified name for collision_a.Price should exist")
-	assert.Contains(t, defs, pkg2QualName, "qualified name for collision_b.Price should exist")
+	collisionAQualName := qualifiedTypeName(reflect.TypeOf(collision_a.Price{}))
+	collisionBQualName := qualifiedTypeName(reflect.TypeOf(collision_b.Price{}))
+	assert.Contains(t, defs, collisionAQualName, "qualified name for collision_a.Price should exist")
+	assert.Contains(t, defs, collisionBQualName, "qualified name for collision_b.Price should exist")
 
 	// RequestBody doesn't collide so it keeps its original name
 	requestBodyDef, ok := defs["RequestBody"].(map[string]interface{})
@@ -705,7 +705,7 @@ func TestMergeDefs_NameCollision(t *testing.T) {
 	priceProp, ok := properties["price"].(map[string]interface{})
 	require.True(t, ok, "RequestBody.price should be a map")
 	// The price $ref should point to the qualified name of collision_a.Price
-	assert.Equal(t, "#/$defs/"+pkg1QualName, priceProp["$ref"])
+	assert.Equal(t, "#/$defs/"+collisionAQualName, priceProp["$ref"])
 }
 
 // patchSalesCurrencyType simulates a uint-based type whose MarshalJSON returns a string.
