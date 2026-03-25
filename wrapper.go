@@ -28,10 +28,12 @@ type GroupWrapper struct {
 	parent    *EchoWrapper
 }
 
-func NewEchoWrapper(e *echo.Echo) *EchoWrapper {
-	return &EchoWrapper{
-		Echo: e,
+func NewEchoWrapper(e *echo.Echo, opts ...Option) *EchoWrapper {
+	w := &EchoWrapper{Echo: e}
+	for _, opt := range opts {
+		opt(&w.endpoints)
 	}
+	return w
 }
 
 func (w *EchoWrapper) AddEnv(env ...Env) {
