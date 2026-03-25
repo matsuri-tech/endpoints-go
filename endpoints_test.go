@@ -3,10 +3,15 @@ package endpoints
 import (
 	"bytes"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/matsuri-tech/endpoints-go/testfixture/collision_a"
+	"github.com/matsuri-tech/endpoints-go/testfixture/collision_b"
 )
 
 type SampleModel struct {
@@ -650,4 +655,127 @@ func TestEchoWrapper_Generate(t *testing.T) {
 }`)
 
 	assert.JSONEqf(t, string(expected), string(actual), string(actual))
+}
+
+// MixedPricesRequest references same-named types from two different packages in a single struct.
+// This triggers the collision case within a single Reflect call.
+type mixedPricesRequest struct {
+	PriceA collision_a.Price `json:"price_a"`
+	PriceB collision_b.Price `json:"price_b"`
+}
+
+// TestMergeDefs_NameCollision verifies that when two types from different packages share the
+// same name, both are renamed to qualified names in $defs and $refs are rewritten accordingly.
+func TestMergeDefs_NameCollision(t *testing.T) {
+	e := endpoints{}
+	e.addEnv(Env{Version: "v1", Domain: Domain{Local: "http://localhost:8080", Dev: "https://dev.example.com", Prod: "https://example.com"}})
+	e.addAPI(API{
+		Name:     "createOrder",
+		Path:     "/orders",
+		Method:   "POST",
+		Request:  collision_a.RequestBody{},
+		Response: collision_b.ResponseBody{},
+	})
+
+	actual, err := e.generateJson()
+	require.NoError(t, err)
+
+	var result map[string]interface{}
+	require.NoError(t, json.Unmarshal(actual, &result))
+
+	defs, ok := result["$defs"].(map[string]interface{})
+	require.True(t, ok)
+
+	// Unqualified "Price" should not exist — renamed to avoid collision
+	assert.NotContains(t, defs, "Price")
+
+	collisionAQualName := qualifiedTypeName(reflect.TypeOf(collision_a.Price{}))
+	collisionBQualName := qualifiedTypeName(reflect.TypeOf(collision_b.Price{}))
+	assert.Contains(t, defs, collisionAQualName)
+	assert.Contains(t, defs, collisionBQualName)
+
+	// RequestBody has no collision — keeps its short name
+	requestBodyDef, ok := defs["RequestBody"].(map[string]interface{})
+	require.True(t, ok, "RequestBody should keep its short name")
+	properties, ok := requestBodyDef["properties"].(map[string]interface{})
+	require.True(t, ok)
+	priceProp, ok := properties["price"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "#/$defs/"+collisionAQualName, priceProp["$ref"])
+}
+
+// TestMergeDefs_SingleTypeReferencesBothColliding verifies that a single struct referencing
+// same-named types from two packages is handled correctly within one Reflect call.
+func TestMergeDefs_SingleTypeReferencesBothColliding(t *testing.T) {
+	e := endpoints{}
+	e.addEnv(Env{Version: "v1", Domain: Domain{Local: "http://localhost:8080", Dev: "https://dev.example.com", Prod: "https://example.com"}})
+	e.addAPI(API{
+		Name:    "mixedPrices",
+		Path:    "/mixed",
+		Method:  "POST",
+		Request: mixedPricesRequest{},
+	})
+
+	actual, err := e.generateJson()
+	require.NoError(t, err)
+
+	var result map[string]interface{}
+	require.NoError(t, json.Unmarshal(actual, &result))
+
+	defs, ok := result["$defs"].(map[string]interface{})
+	require.True(t, ok)
+
+	assert.NotContains(t, defs, "Price")
+
+	collisionAQualName := qualifiedTypeName(reflect.TypeOf(collision_a.Price{}))
+	collisionBQualName := qualifiedTypeName(reflect.TypeOf(collision_b.Price{}))
+	assert.Contains(t, defs, collisionAQualName)
+	assert.Contains(t, defs, collisionBQualName)
+
+	mixedDef, ok := defs["mixedPricesRequest"].(map[string]interface{})
+	require.True(t, ok)
+	props, ok := mixedDef["properties"].(map[string]interface{})
+	require.True(t, ok)
+
+	priceAProp, ok := props["price_a"].(map[string]interface{})
+	require.True(t, ok)
+	priceBProp, ok := props["price_b"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "#/$defs/"+collisionAQualName, priceAProp["$ref"])
+	assert.Equal(t, "#/$defs/"+collisionBQualName, priceBProp["$ref"])
+}
+
+// TestMergeDefs_AdditionalProperties verifies that $ref under additionalProperties
+// (map value types) is correctly rewritten when name collisions occur.
+func TestMergeDefs_AdditionalProperties(t *testing.T) {
+	e := endpoints{}
+	e.addEnv(Env{Version: "v1", Domain: Domain{Local: "http://localhost:8080", Dev: "https://dev.example.com", Prod: "https://example.com"}})
+	// collision_a.MapPriceRequest has map[string]collision_a.Price — value type uses additionalProperties
+	e.addAPI(API{Name: "mapPrice", Path: "/map-price", Method: "POST", Request: collision_a.MapPriceRequest{}})
+	// Add collision_b.Price to trigger the name collision
+	e.addAPI(API{Name: "singleB", Path: "/single-b", Method: "POST", Request: collision_b.ResponseBody{}})
+
+	actual, err := e.generateJson()
+	require.NoError(t, err)
+
+	var result map[string]interface{}
+	require.NoError(t, json.Unmarshal(actual, &result))
+
+	defs, ok := result["$defs"].(map[string]interface{})
+	require.True(t, ok)
+
+	assert.NotContains(t, defs, "Price")
+
+	collisionAQualName := qualifiedTypeName(reflect.TypeOf(collision_a.Price{}))
+	assert.Contains(t, defs, collisionAQualName)
+
+	mapReqDef, ok := defs["MapPriceRequest"].(map[string]interface{})
+	require.True(t, ok)
+	props, ok := mapReqDef["properties"].(map[string]interface{})
+	require.True(t, ok)
+	itemsProp, ok := props["items"].(map[string]interface{})
+	require.True(t, ok)
+	additionalProps, ok := itemsProp["additionalProperties"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "#/$defs/"+collisionAQualName, additionalProps["$ref"])
 }
