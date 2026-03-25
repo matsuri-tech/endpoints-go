@@ -788,8 +788,6 @@ type requestWithStringID struct {
 	ID StringID `json:"id"`
 }
 
-var testEnv = Env{Version: "v1", Domain: Domain{Local: "http://localhost:8080", Dev: "https://dev.example.com", Prod: "https://example.com"}}
-
 // TestWithSchemaOverride_generateJson verifies that WithSchemaOverride causes the
 // overridden type to appear with the specified schema in the generated JSON output.
 func TestWithSchemaOverride_generateJson(t *testing.T) {
@@ -798,7 +796,7 @@ func TestWithSchemaOverride_generateJson(t *testing.T) {
 			reflect.TypeOf(StringID(0)): {Type: "string"},
 		},
 	}
-	e.addEnv(testEnv)
+	e.addEnv(Env{Version: "v1", Domain: Domain{Local: "http://localhost:8080", Dev: "https://dev.example.com", Prod: "https://example.com"}})
 	e.addAPI(API{Name: "test", Path: "/test", Method: "GET", Response: requestWithStringID{}})
 
 	actual, err := e.generateJson()
