@@ -793,7 +793,7 @@ type requestWithStringID struct {
 func TestWithSchemaOverride_generateJson(t *testing.T) {
 	e := endpoints{
 		schemaOverrides: map[reflect.Type]*jsonschema.Schema{
-			reflect.TypeOf(StringID(0)): {Type: "string"},
+			reflect.TypeOf(StringID(0)): &jsonschema.Schema{Type: "string"},
 		},
 	}
 	e.addEnv(Env{Version: "v1", Domain: Domain{Local: "http://localhost:8080", Dev: "https://dev.example.com", Prod: "https://example.com"}})

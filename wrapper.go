@@ -31,6 +31,9 @@ type GroupWrapper struct {
 func NewEchoWrapper(e *echo.Echo, opts ...Option) *EchoWrapper {
 	w := &EchoWrapper{Echo: e}
 	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
 		opt(&w.endpoints)
 	}
 	return w
