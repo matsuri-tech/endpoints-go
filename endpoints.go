@@ -333,7 +333,7 @@ func (e *endpoints) generateSchemaRef(typ any, allDefs jsonschema.Definitions, r
 		return nil
 	}
 
-	schema, _ := reflectType(typ, nil)
+	schema, _ := reflectType(typ)
 	rewriteRefs(schema, renames)
 
 	if schema.Ref != "" {
@@ -622,7 +622,7 @@ func (v API) generatedApi(renames map[string]string) generatedApi {
 		if typ == nil {
 			return nil
 		}
-		s, _ := reflectType(typ, nil)
+		s, _ := reflectType(typ)
 		ref := applyRenameToRef(s.Ref, renames)
 		items := s.Items
 		if items != nil {
@@ -666,7 +666,7 @@ func (fs Frontends) Includes(target string) bool {
 // reflectType reflects typ using fully-qualified type names (package + type name) as $defs keys,
 // preventing name collisions even within a single Reflect call.
 // Returns the schema and a map of qualifiedName → shortName (t.Name()) for rename computation.
-func reflectType(typ any, overrides map[reflect.Type]*jsonschema.Schema) (*jsonschema.Schema, map[string]string) {
+func reflectType(typ any) (*jsonschema.Schema, map[string]string) {
 	shortNames := make(map[string]string)
 	r := &jsonschema.Reflector{
 		Namer: func(t reflect.Type) string {
@@ -676,12 +676,6 @@ func reflectType(typ any, overrides map[reflect.Type]*jsonschema.Schema) (*jsons
 			qual := qualifiedTypeName(t)
 			shortNames[qual] = t.Name()
 			return qual
-		},
-		Mapper: func(t reflect.Type) *jsonschema.Schema {
-			if override, ok := overrides[t]; ok {
-				return override
-			}
-			return nil
 		},
 	}
 	return r.Reflect(typ), shortNames
@@ -698,11 +692,11 @@ func (e *endpoints) collectAllDefs() []reflectResult {
 	var results []reflectResult
 	for _, api := range e.api {
 		if api.Request != nil {
-			s, shortNames := reflectType(api.Request, nil)
+			s, shortNames := reflectType(api.Request)
 			results = append(results, reflectResult{schema: s, shortNames: shortNames})
 		}
 		if api.Response != nil {
-			s, shortNames := reflectType(api.Response, nil)
+			s, shortNames := reflectType(api.Response)
 			results = append(results, reflectResult{schema: s, shortNames: shortNames})
 		}
 	}
