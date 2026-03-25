@@ -805,9 +805,13 @@ func rewriteRefs(s *jsonschema.Schema, renames map[string]string) {
 }
 
 // applyRenameToRef applies renames to a single $ref string.
+// Uses exact matching to avoid partial substitution bugs
+// (e.g. renaming "Foo" must not affect "#/$defs/FooBar").
 func applyRenameToRef(ref string, renames map[string]string) string {
 	for old, newName := range renames {
-		ref = strings.Replace(ref, "#/$defs/"+old, "#/$defs/"+newName, 1)
+		if ref == "#/$defs/"+old {
+			return "#/$defs/" + newName
+		}
 	}
 	return ref
 }
