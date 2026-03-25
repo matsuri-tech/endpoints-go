@@ -760,6 +760,8 @@ func toPascalCase(s string) string {
 
 // qualifiedTypeName returns a unique name for the type using its package path + type name.
 // Example: type Price in "github.com/example/web/requests" → "WebRequestsPrice"
+// Note: if two different packages share the same last 2 path segments, their prefixes will
+// collide and cause a duplicate key. This is considered unlikely enough to be acceptable.
 func qualifiedTypeName(t reflect.Type) string {
 	pkg := t.PkgPath()
 	parts := strings.Split(pkg, "/")
