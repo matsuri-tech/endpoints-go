@@ -19,10 +19,9 @@ import (
 )
 
 type endpoints struct {
-	env             []Env
-	frontends       []string
-	api             []API
-	schemaOverrides map[reflect.Type]*jsonschema.Schema
+	env       []Env
+	frontends []string
+	api       []API
 }
 
 func (e *endpoints) addEnv(env ...Env) {
@@ -334,7 +333,7 @@ func (e *endpoints) generateSchemaRef(typ any, allDefs jsonschema.Definitions, r
 		return nil
 	}
 
-	schema, _ := reflectType(typ, e.schemaOverrides)
+	schema, _ := reflectType(typ)
 	rewriteRefs(schema, renames)
 
 	if schema.Ref != "" {
@@ -549,7 +548,7 @@ func (e *endpoints) generateAPIList(version string, renames map[string]string) *
 	for _, v := range e.api {
 		// v.Versionsが定義されていない場合は全てのバージョンに含まれるものとして扱う
 		if len(v.Versions) == 0 || v.Versions.Includes(version) {
-			apis.Set(v.Name, v.generatedApi(renames, e.schemaOverrides))
+			apis.Set(v.Name, v.generatedApi(renames))
 		}
 	}
 	return apis
@@ -562,7 +561,7 @@ func (e *endpoints) generateAPIListByFrontend(version, frontend string, renames 
 		if len(v.Versions) == 0 || v.Versions.Includes(version) {
 			// v.Targetsが定義されていない場合は全てのフロントエンドに含まれるものとして扱う
 			if len(v.Frontends) == 0 || v.Frontends.Includes(frontend) {
-				apis.Set(v.Name, v.generatedApi(renames, e.schemaOverrides))
+				apis.Set(v.Name, v.generatedApi(renames))
 			}
 		}
 	}
@@ -618,12 +617,12 @@ type API struct {
 	Frontends Frontends
 }
 
-func (v API) generatedApi(renames map[string]string, overrides map[reflect.Type]*jsonschema.Schema) generatedApi {
+func (v API) generatedApi(renames map[string]string) generatedApi {
 	build := func(typ any) *schemaStruct {
 		if typ == nil {
 			return nil
 		}
-		s, _ := reflectType(typ, overrides)
+		s, _ := reflectType(typ)
 		ref := applyRenameToRef(s.Ref, renames)
 		items := s.Items
 		if items != nil {
@@ -667,7 +666,7 @@ func (fs Frontends) Includes(target string) bool {
 // reflectType reflects typ using fully-qualified type names (package + type name) as $defs keys,
 // preventing name collisions even within a single Reflect call.
 // Returns the schema and a map of qualifiedName → shortName (t.Name()) for rename computation.
-func reflectType(typ any, overrides map[reflect.Type]*jsonschema.Schema) (*jsonschema.Schema, map[string]string) {
+func reflectType(typ any) (*jsonschema.Schema, map[string]string) {
 	shortNames := make(map[string]string)
 	r := &jsonschema.Reflector{
 		Namer: func(t reflect.Type) string {
@@ -678,17 +677,6 @@ func reflectType(typ any, overrides map[reflect.Type]*jsonschema.Schema) (*jsons
 			shortNames[qual] = t.Name()
 			return qual
 		},
-	}
-	if len(overrides) > 0 {
-		r.Mapper = func(t reflect.Type) *jsonschema.Schema {
-			if s, ok := overrides[t]; ok {
-				return s
-			}
-			if t.Kind() == reflect.Ptr {
-				return overrides[t.Elem()]
-			}
-			return nil
-		}
 	}
 	return r.Reflect(typ), shortNames
 }
@@ -704,11 +692,11 @@ func (e *endpoints) collectAllDefs() []reflectResult {
 	var results []reflectResult
 	for _, api := range e.api {
 		if api.Request != nil {
-			s, shortNames := reflectType(api.Request, e.schemaOverrides)
+			s, shortNames := reflectType(api.Request)
 			results = append(results, reflectResult{schema: s, shortNames: shortNames})
 		}
 		if api.Response != nil {
-			s, shortNames := reflectType(api.Response, e.schemaOverrides)
+			s, shortNames := reflectType(api.Response)
 			results = append(results, reflectResult{schema: s, shortNames: shortNames})
 		}
 	}
