@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/invopop/jsonschema"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -778,4 +779,48 @@ func TestMergeDefs_AdditionalProperties(t *testing.T) {
 	additionalProps, ok := itemsProp["additionalProperties"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, "#/$defs/"+collisionAQualName, additionalProps["$ref"])
+}
+
+// StringID simulates a uint-based type whose MarshalJSON outputs a JSON string.
+type StringID uint
+
+type requestWithStringID struct {
+	ID StringID `json:"id"`
+}
+
+// TestWithSchemaOverride_generateJson verifies that WithSchemaOverride causes the
+// overridden type to appear with the specified schema in the generated JSON output.
+func TestWithSchemaOverride_generateJson(t *testing.T) {
+	e := endpoints{
+		schemaOverrides: map[reflect.Type]*jsonschema.Schema{
+			reflect.TypeOf(StringID(0)): {Type: "string"},
+		},
+	}
+	e.addEnv(Env{Version: "v1", Domain: Domain{Local: "http://localhost:8080", Dev: "https://dev.example.com", Prod: "https://example.com"}})
+	e.addAPI(API{Name: "test", Path: "/test", Method: "GET", Response: requestWithStringID{}})
+
+	actual, err := e.generateJson()
+	require.NoError(t, err)
+
+	var result map[string]interface{}
+	require.NoError(t, json.Unmarshal(actual, &result))
+
+	defs, ok := result["$defs"].(map[string]interface{})
+	require.True(t, ok)
+	reqDef, ok := defs["requestWithStringID"].(map[string]interface{})
+	require.True(t, ok)
+	props, ok := reqDef["properties"].(map[string]interface{})
+	require.True(t, ok)
+	idProp, ok := props["id"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "string", idProp["type"])
+}
+
+// TestWithSchemaOverride_NewEchoWrapper verifies that WithSchemaOverride correctly
+// populates schemaOverrides on the EchoWrapper's endpoints via the public API.
+func TestWithSchemaOverride_NewEchoWrapper(t *testing.T) {
+	override := &jsonschema.Schema{Type: "string"}
+	ew := NewEchoWrapper(echo.New(), WithSchemaOverride(StringID(0), override))
+	assert.NotNil(t, ew.endpoints.schemaOverrides)
+	assert.Equal(t, override, ew.endpoints.schemaOverrides[reflect.TypeOf(StringID(0))])
 }

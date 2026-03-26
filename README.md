@@ -99,3 +99,23 @@ if err := ew.Generate(".endpoints.json"); err != nil {
     log.Printf("failed to generate endpoints file: %v", err)
 }
 ```
+
+## スキーマのカスタマイズ
+
+`invopop/jsonschema` は Go の型構造を元にスキーマを生成するため、
+`MarshalJSON` によって JSON 上の型が Go の型と異なる場合（例: `uint` ベースの型が JSON では `string` になる）、
+生成されるスキーマが実際の挙動と一致しないことがあります。
+
+`WithSchemaOverride` を使うと、型ごとに1回設定するだけで
+その型が使われる全フィールドに自動的に適用されます。
+
+```go
+// CurrencyType は内部的に uint だが MarshalJSON により JSON 上は string として扱われる
+type CurrencyType uint
+
+ew := endpoints.NewEchoWrapper(e,
+    endpoints.WithSchemaOverride(CurrencyType(0), &jsonschema.Schema{Type: "string"}),
+)
+```
+
+フィールドごとに `jsonschema:"type=string"` タグを書く必要はありません。
