@@ -6,7 +6,7 @@ require (
 	github.com/getkin/kin-openapi v0.131.0
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.13.0
-	github.com/labstack/echo/v5 v5.0.0
+	github.com/labstack/echo/v5 v5.0.3
 	github.com/stretchr/testify v1.11.1
 	gopkg.in/yaml.v3 v3.0.1
 )
