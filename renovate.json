@@ -3,7 +3,8 @@
   "timezone": "Asia/Tokyo",
   "extends": [
     "config:recommended",
-    ":configMigration"
+    ":configMigration",
+    "helpers:pinGitHubActionDigestsToSemver"
   ],
   "reviewers": [
     "hrdtbs"
