@@ -64,11 +64,11 @@
       "matchDepTypes": [
         "action"
       ],
-      "pinDigests": true,
       "matchPackageNames": [
-        "!actions/{/,}**",
-        "!matsuri-tech/{/,}**"
-      ]
+        "actions/{/,}**",
+        "matsuri-tech/{/,}**"
+      ],
+      "pinDigests": false
     }
   ]
 }
