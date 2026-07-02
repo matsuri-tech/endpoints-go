@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/matsuri-tech/endpoints-go/v1/testfixture/collision_a"
-	"github.com/matsuri-tech/endpoints-go/v1/testfixture/collision_b"
+	"github.com/matsuri-tech/endpoints-go/v2/testfixture/collision_a"
+	"github.com/matsuri-tech/endpoints-go/v2/testfixture/collision_b"
 )
 
 type SampleModel struct {

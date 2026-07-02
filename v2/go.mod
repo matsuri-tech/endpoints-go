@@ -1,4 +1,4 @@
-module github.com/matsuri-tech/endpoints-go/v1
+module github.com/matsuri-tech/endpoints-go/v2
 
 go 1.25.0
 
