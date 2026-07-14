@@ -1,6 +1,7 @@
+version: "2"
 linters:
+  default: standard
   enable:
-    - gofumpt
     - durationcheck
     - forcetypeassert
     - gocognit
@@ -10,16 +11,26 @@ linters:
     - errorlint
     - exhaustive
     - revive
-    # - gosec
-linters-settings:
-  revive:
+  settings:
+    revive:
+      rules:
+        - name: var-naming
+          disabled: true
+  exclusions:
+    # Restore golangci-lint v1's default exclusions (exclude-use-default: true),
+    # e.g. unchecked deferred file.Close() (errcheck), which v1 excluded but v2
+    # does not unless these presets are opted into.
+    presets:
+      - legacy
+      - std-error-handling
+    # Exclude some linters from running on tests files.
     rules:
-      - name: var-naming
-        disabled: true
+      - path: _test\.go
+        linters:
+          - revive
+          - goconst
+formatters:
+  enable:
+    - gofumpt
 issues:
   max-same-issues: 0
-  exclude-rules:
-    # Exclude some linters from running on tests files.
-    - path: _test\.go
-      linters:
-        - revive
