@@ -1,6 +1,7 @@
+version: "2"
 linters:
+  default: standard
   enable:
-    - gofumpt
     - durationcheck
     - forcetypeassert
     - gocognit
@@ -10,16 +11,19 @@ linters:
     - errorlint
     - exhaustive
     - revive
-    # - gosec
-linters-settings:
-  revive:
+  settings:
+    revive:
+      rules:
+        - name: var-naming
+          disabled: true
+  exclusions:
+    # Exclude some linters from running on tests files.
     rules:
-      - name: var-naming
-        disabled: true
+      - path: _test\.go
+        linters:
+          - revive
+formatters:
+  enable:
+    - gofumpt
 issues:
   max-same-issues: 0
-  exclude-rules:
-    # Exclude some linters from running on tests files.
-    - path: _test\.go
-      linters:
-        - revive
