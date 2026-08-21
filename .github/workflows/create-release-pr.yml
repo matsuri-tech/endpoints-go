@@ -7,8 +7,9 @@ on:
 
 jobs:
   create-release-pr:
-    uses: matsuri-tech/matsuri-workflows/.github/workflows/create-release-pr.yml@main
+    uses: matsuri-tech/matsuri-workflows/.github/workflows/create-release-pr.yml@a293e3fcbaef01ef4a6e7f4289d288854944eed6  # PR#170 (2026-08-21)
     with:
+      base_branch: master
       version_manager: version-file
     secrets:
       REPO_ONLY_GITHUB_TOKEN: ${{ secrets.REPO_ONLY_GITHUB_TOKEN }}
