@@ -4,12 +4,205 @@ on:
   schedule:
     - cron: "0 5 * * 2"
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Release type (leave as 'auto' for commit-based detection)"
+        required: false
+        type: choice
+        default: "auto"
+        options:
+          - auto
+          - major
+          - minor
+          - patch
 
 jobs:
+  get-release-type:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      recommended_release_type: ${{ steps.check.outputs.recommended_release_type }}
+      release_risk: ${{ steps.check.outputs.release_risk }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check for new commits, version bump type and release risk
+        id: check
+        shell: bash
+        env:
+          TAG_PATTERN: "v*"
+        run: |
+          # このリポジトリはpublicのため、private repoであるmatsuri-workflowsのreusable
+          # workflow(get-recommended-release-type.yml)を呼び出せない（GitHubの仕様上の制約）。
+          # そのため同ロジックをこのファイルに直接埋め込んでいる。
+          # ロジックの変更はmatsuri-workflows側と手動で同期する必要がある。
+          LAST_TAG=$(git tag -l "$TAG_PATTERN" | grep -E '(^|/)v?[0-9]+(\.[0-9]+){2}$' | sort -V | tail -n 1 || true)
+          if [ -n "$LAST_TAG" ]; then
+              RANGE="$LAST_TAG..HEAD"
+          else
+              LAST_TAG="(none)"
+              RANGE="HEAD"
+          fi
+          COMMIT_COUNT=$(git rev-list "$RANGE" --count)
+
+          BREAKING_RE='^[a-z]+(\([^)]+\))?!'
+          FEAT_RE='^feat(\([^)]+\))?:'
+          DEPS_RE='^(chore|fix)\(deps[^)]*\)!?:'
+          CI_DEPS_RE=' action (digest )?to '
+          NON_IMPACTING_RE='^(ci|docs|test|style|chore)(\([^)]+\))?:'
+          MAJOR_TO_RE='to v?[0-9]+([^.0-9]|$)'
+          MAJOR_GROUP_RE='\(major\)'
+          FROM_TO_RE='from v?([0-9]+)[^ ]* to v?([0-9]+)'
+
+          IMPACTING_COUNT=0
+          DEPS_COUNT=0
+          MAJOR_DEPS_COUNT=0
+          VERSION_BUMP="patch"
+
+          while IFS= read -r -d '' commit; do
+              commit="${commit#"${commit%%[![:space:]]*}"}"
+              subject="${commit%%$'\n'*}"
+
+              if [[ $subject =~ ^Merge\  ]]; then
+                  continue
+              fi
+
+              if [[ $subject =~ $DEPS_RE ]]; then
+                  if [[ $subject =~ $CI_DEPS_RE ]]; then
+                      continue
+                  fi
+                  IMPACTING_COUNT=$((IMPACTING_COUNT + 1))
+                  DEPS_COUNT=$((DEPS_COUNT + 1))
+                  if [[ $subject =~ $MAJOR_TO_RE ]] || [[ $subject =~ $MAJOR_GROUP_RE ]]; then
+                      MAJOR_DEPS_COUNT=$((MAJOR_DEPS_COUNT + 1))
+                  elif [[ $subject =~ $FROM_TO_RE ]] && [ "${BASH_REMATCH[1]}" != "${BASH_REMATCH[2]}" ]; then
+                      MAJOR_DEPS_COUNT=$((MAJOR_DEPS_COUNT + 1))
+                  fi
+                  if [[ $subject =~ $BREAKING_RE ]]; then
+                      VERSION_BUMP="major"
+                  fi
+              elif [[ $subject =~ $NON_IMPACTING_RE ]]; then
+                  continue
+              else
+                  IMPACTING_COUNT=$((IMPACTING_COUNT + 1))
+                  if printf '%s\n' "$commit" | grep -qE '^BREAKING[- ]CHANGE:' || [[ $subject =~ $BREAKING_RE ]]; then
+                      VERSION_BUMP="major"
+                  elif [[ $subject =~ $FEAT_RE ]] && [ "$VERSION_BUMP" != "major" ]; then
+                      VERSION_BUMP="minor"
+                  fi
+              fi
+          done < <(git log "$RANGE" --pretty=format:%B%x00)
+
+          SHOULD_RELEASE="false"
+          if [ $IMPACTING_COUNT -gt 0 ]; then
+              SHOULD_RELEASE="true"
+          fi
+
+          RELEASE_RISK="high"
+          if [ "$SHOULD_RELEASE" = "true" ] \
+              && [ $DEPS_COUNT -eq $IMPACTING_COUNT ] \
+              && [ $MAJOR_DEPS_COUNT -eq 0 ] \
+              && [ "$VERSION_BUMP" = "patch" ]; then
+              RELEASE_RISK="low"
+          fi
+
+          {
+              echo "should_release=$SHOULD_RELEASE"
+              echo "recommended_release_type=$VERSION_BUMP"
+              echo "release_risk=$RELEASE_RISK"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+              echo "- Last tag: $LAST_TAG"
+              echo "- Commits: $COMMIT_COUNT (impacting: $IMPACTING_COUNT, deps: $DEPS_COUNT, major deps: $MAJOR_DEPS_COUNT)"
+              echo "- Version bump: $VERSION_BUMP"
+              echo "- Should release: $SHOULD_RELEASE"
+              echo "- Release risk: $RELEASE_RISK"
+          } >> "$GITHUB_STEP_SUMMARY"
+
   create-release-pr:
-    uses: matsuri-tech/matsuri-workflows/.github/workflows/create-release-pr.yml@a293e3fcbaef01ef4a6e7f4289d288854944eed6  # PR#170 (2026-08-21)
-    with:
-      base_branch: master
-      version_manager: version-file
-    secrets:
-      REPO_ONLY_GITHUB_TOKEN: ${{ secrets.REPO_ONLY_GITHUB_TOKEN }}
+    needs: get-release-type
+    if: needs.get-release-type.outputs.should_release == 'true' || (inputs.release_type != 'auto' && inputs.release_type != '')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Bump version
+        id: bump
+        shell: bash
+        env:
+          RELEASE_TYPE_INPUT: ${{ inputs.release_type }}
+          RECOMMENDED_TYPE: ${{ needs.get-release-type.outputs.recommended_release_type }}
+        run: |
+          if [ -n "$RELEASE_TYPE_INPUT" ] && [ "$RELEASE_TYPE_INPUT" != "auto" ]; then
+              RELEASE_TYPE="$RELEASE_TYPE_INPUT"
+          else
+              RELEASE_TYPE="$RECOMMENDED_TYPE"
+          fi
+
+          CURRENT=$(cat .version)
+          CURRENT="${CURRENT//$'\r'/}"
+          IFS='.' read -r major minor patch <<< "$CURRENT"
+          case "$RELEASE_TYPE" in
+              major) NEW_VERSION="$((major + 1)).0.0" ;;
+              minor) NEW_VERSION="$major.$((minor + 1)).0" ;;
+              patch) NEW_VERSION="$major.$minor.$((patch + 1))" ;;
+              *)
+                  echo "::error::サポートされていないrelease_typeです: $RELEASE_TYPE"
+                  exit 1
+                  ;;
+          esac
+          echo "$NEW_VERSION" > .version
+
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Bumped version to: $NEW_VERSION"
+
+      - name: Create Pull Request
+        id: pr
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
+        with:
+          token: ${{ secrets.REPO_ONLY_GITHUB_TOKEN }}
+          commit-message: "chore: bump version to v${{ steps.bump.outputs.new_version }}"
+          title: "Release Note: v${{ steps.bump.outputs.new_version }}"
+          branch: release/next
+          base: master
+          reviewers: hrdtbs
+          labels: release
+          delete-branch: true
+
+      - name: Reconcile auto-merge
+        if: steps.pr.outputs.pull-request-url != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.REPO_ONLY_GITHUB_TOKEN }}
+          URL: ${{ steps.pr.outputs.pull-request-url }}
+          RELEASE_RISK: ${{ needs.get-release-type.outputs.release_risk }}
+          RELEASE_TYPE_INPUT: ${{ inputs.release_type }}
+        run: |
+          ARM="false"
+          if [ "$RELEASE_RISK" = "low" ] && { [ "$RELEASE_TYPE_INPUT" = "auto" ] || [ -z "$RELEASE_TYPE_INPUT" ]; }; then
+              ARM="true"
+          fi
+
+          PR_LABELS=$(gh pr view "$URL" --json labels --jq '[.labels[].name] | join(" ")')
+          if [[ " $PR_LABELS " == *" hold "* ]]; then
+              ARM="false"
+              echo "holdラベルが付与されています。"
+          fi
+
+          if [ "$ARM" = "true" ]; then
+              gh pr edit "$URL" --add-label auto-release
+              if gh pr merge --auto --squash "$URL"; then
+                  echo "リリース内容が依存関係のminor/patch更新のみのため、auto-mergeを有効化しました: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
+              else
+                  echo "::error::auto-mergeの有効化に失敗しました。リポジトリのauto-merge設定・required checksを確認してください: $URL"
+                  exit 1
+              fi
+          else
+              gh pr merge --disable-auto "$URL" 2>/dev/null || true
+              echo "auto-mergeは有効化されていません（release_risk: $RELEASE_RISK）: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
+          fi
