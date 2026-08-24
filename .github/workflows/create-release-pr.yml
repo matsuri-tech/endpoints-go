@@ -170,7 +170,10 @@ jobs:
           title: "Release Note: v${{ steps.bump.outputs.new_version }}"
           branch: release/next
           base: master
-          reviewers: hrdtbs
+          # このリポジトリのREPO_ONLY_GITHUB_TOKENはhrdtbs個人のPATのため、
+          # 自分自身をレビュワーに指定するとGitHub APIがエラーを返す
+          # (Review cannot be requested from pull request author)。
+          # そのためreviewersは指定しない。
           labels: release
           delete-branch: true
 
