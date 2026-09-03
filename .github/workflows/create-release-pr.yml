@@ -235,7 +235,9 @@ jobs:
     # リリース対象がなくなった（または低リスクのため見送りになった）場合、前回の実行で作成された
     # リリースPRが古いbump内容のまま残るため、閉じておく。次に条件を満たしたときに再作成される。
     needs: get-release-type
-    if: needs.get-release-type.outputs.should_release != 'true' && (inputs.release_type == 'auto' || inputs.release_type == '')
+    # schedule実行ではinputsが存在しないため、イベント種別で分岐する（workflow_dispatchでrelease_typeを
+    # 手動指定した場合のみ、強制リリースとしてクローズをスキップする）
+    if: needs.get-release-type.outputs.should_release != 'true' && (github.event_name != 'workflow_dispatch' || inputs.release_type == 'auto' || inputs.release_type == '')
     runs-on: ubuntu-latest
     steps:
       - name: Close stale release PR
@@ -272,7 +274,8 @@ jobs:
 
   create-release-pr:
     needs: get-release-type
-    if: needs.get-release-type.outputs.should_release == 'true' || (inputs.release_type != 'auto' && inputs.release_type != '')
+    # release_typeによる強制リリースはworkflow_dispatchで明示的に指定された場合のみ許可する
+    if: needs.get-release-type.outputs.should_release == 'true' || (github.event_name == 'workflow_dispatch' && inputs.release_type != 'auto' && inputs.release_type != '')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
