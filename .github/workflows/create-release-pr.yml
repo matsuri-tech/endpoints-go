@@ -87,7 +87,7 @@ jobs:
           RUNTIME_DEPS_RE='^fix\(deps[^)]*\)!?:'
           # Dependabotは "bump x from 1.2.3 to 2.0.0" の形式で、depTypeを件名に反映しない。
           # このorgではDependabotは主にセキュリティアラート対応で使われるため、安全側に倒して影響ありとみなす
-          DEPENDABOT_RE='^chore\(deps[^)]*\): bump '
+          DEPENDABOT_RE='^chore\(deps[^)]*\): [Bb]ump '
           # Renovateのvulnerability alerts由来の更新は件名に "[SECURITY]" が付く
           SECURITY_RE='\[[Ss][Ee][Cc][Uu][Rr][Ii][Tt][Yy]\]'
           # GitHub Actionsの更新はCI設定のみの変更のため、公開物に影響しない
