@@ -62,6 +62,21 @@ jobs:
 
           COMMIT_COUNT=$(git rev-list "$RANGE" --count "${PATHSPEC[@]}")
 
+          # type: number の入力は "5.0" のような小数表記で渡ることがあるため、整数に正規化する。
+          # 整数として解釈できない値は警告を出して既定値にフォールバックする
+          normalize_int() {
+              local value="$1" default="$2" name="$3"
+              value="${value%%.*}"
+              if [[ $value =~ ^[0-9]+$ ]]; then
+                  echo "$value"
+              else
+                  echo "::warning::${name} に整数として解釈できない値（$1）が指定されたため、既定値 ${default} を使用します" >&2
+                  echo "$default"
+              fi
+          }
+          MIN_LOW_RISK_COMMITS=$(normalize_int "$MIN_LOW_RISK_COMMITS" 5 min_low_risk_commits)
+          MAX_LOW_RISK_AGE_DAYS=$(normalize_int "$MAX_LOW_RISK_AGE_DAYS" 28 max_low_risk_age_days)
+
           BREAKING_RE='^[a-z]+(\([^)]+\))?!'
           FEAT_RE='^feat(\([^)]+\))?:'
           # Renovate / Dependabot による依存関係更新コミット
@@ -164,8 +179,10 @@ jobs:
           done < <(git log "$RANGE" --pretty=format:%ct%n%B%x00 "${PATHSPEC[@]}")
 
           OLDEST_AGE_DAYS=0
+          OLDEST_AGE_LABEL="(none)"
           if [ -n "$OLDEST_IMPACTING_TS" ]; then
               OLDEST_AGE_DAYS=$(( ($(date +%s) - OLDEST_IMPACTING_TS) / 86400 ))
+              OLDEST_AGE_LABEL="${OLDEST_AGE_DAYS} days ago"
           fi
 
           # 公開物に影響する変更が依存関係のminor/patch更新のみの場合、自動リリース可能（low）と判定する
@@ -205,7 +222,7 @@ jobs:
           {
               echo "- Last tag: $LAST_TAG"
               echo "- Commits: $COMMIT_COUNT (impacting: $IMPACTING_COUNT, deps: $DEPS_COUNT, major deps: $MAJOR_DEPS_COUNT, security: $SECURITY_COUNT)"
-              echo "- Oldest impacting change: ${OLDEST_AGE_DAYS} days ago"
+              echo "- Oldest impacting change: $OLDEST_AGE_LABEL"
               echo "- Version bump: $VERSION_BUMP"
               echo "- Release risk: $RELEASE_RISK"
               echo "- Should release: $SHOULD_RELEASE"
@@ -355,6 +372,13 @@ jobs:
           URL: ${{ steps.pr.outputs.pull-request-url }}
           TIMEOUT_MINUTES: "30"
         run: |
+          # type: number の入力は "30.0" のような小数表記で渡ることがあるため整数に正規化する。
+          # 直接マージは補助機能のため、整数として解釈できない場合は警告してスキップする（auto-mergeは有効のまま）
+          TIMEOUT_MINUTES="${TIMEOUT_MINUTES%%.*}"
+          if ! [[ $TIMEOUT_MINUTES =~ ^[0-9]+$ ]] || [ "$TIMEOUT_MINUTES" -eq 0 ]; then
+              echo "::warning::auto_merge_timeout_minutes が整数として解釈できない、または0のため、直接マージをスキップします。auto-mergeは有効のままです: $URL"
+              exit 0
+          fi
           DEADLINE=$((SECONDS + TIMEOUT_MINUTES * 60))
           while :; do
               STATE=$(gh pr view "$URL" --json state --jq .state)
