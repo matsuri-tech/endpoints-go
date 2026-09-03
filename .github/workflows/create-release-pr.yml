@@ -23,6 +23,8 @@ jobs:
       should_release: ${{ steps.check.outputs.should_release }}
       recommended_release_type: ${{ steps.check.outputs.recommended_release_type }}
       release_risk: ${{ steps.check.outputs.release_risk }}
+      impacting_count: ${{ steps.check.outputs.impacting_count }}
+      deferred: ${{ steps.check.outputs.deferred }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -33,11 +35,18 @@ jobs:
         shell: bash
         env:
           TAG_PATTERN: "v*"
+          PATH_FILTER: ""
+          # 低リスク（依存関係のminor/patch更新のみ）のリリースは、この件数が溜まるか、
+          # 最古の未リリース変更からこの日数が経過するまで見送る
+          MIN_LOW_RISK_COMMITS: "5"
+          MAX_LOW_RISK_AGE_DAYS: "28"
         run: |
           # このリポジトリはpublicのため、private repoであるmatsuri-workflowsのreusable
           # workflow(get-recommended-release-type.yml)を呼び出せない（GitHubの仕様上の制約）。
           # そのため同ロジックをこのファイルに直接埋め込んでいる。
           # ロジックの変更はmatsuri-workflows側と手動で同期する必要がある。
+
+          # vnext等のsemver形式でないタグを除外して最新タグを取得する
           LAST_TAG=$(git tag -l "$TAG_PATTERN" | grep -E '(^|/)v?[0-9]+(\.[0-9]+){2}$' | sort -V | tail -n 1 || true)
           if [ -n "$LAST_TAG" ]; then
               RANGE="$LAST_TAG..HEAD"
@@ -45,86 +54,228 @@ jobs:
               LAST_TAG="(none)"
               RANGE="HEAD"
           fi
-          COMMIT_COUNT=$(git rev-list "$RANGE" --count)
+
+          PATHSPEC=()
+          if [ -n "$PATH_FILTER" ]; then
+              PATHSPEC=(-- "$PATH_FILTER")
+          fi
+
+          COMMIT_COUNT=$(git rev-list "$RANGE" --count "${PATHSPEC[@]}")
+
+          # type: number の入力は "5.0" のような小数表記で渡ることがあるため、整数に正規化する。
+          # 整数として解釈できない値は警告を出して既定値にフォールバックする
+          normalize_int() {
+              local value="$1" default="$2" name="$3"
+              value="${value%%.*}"
+              if [[ $value =~ ^[0-9]+$ ]]; then
+                  echo "$value"
+              else
+                  echo "::warning::${name} に整数として解釈できない値（$1）が指定されたため、既定値 ${default} を使用します" >&2
+                  echo "$default"
+              fi
+          }
+          MIN_LOW_RISK_COMMITS=$(normalize_int "$MIN_LOW_RISK_COMMITS" 5 min_low_risk_commits)
+          MAX_LOW_RISK_AGE_DAYS=$(normalize_int "$MAX_LOW_RISK_AGE_DAYS" 28 max_low_risk_age_days)
 
           BREAKING_RE='^[a-z]+(\([^)]+\))?!'
           FEAT_RE='^feat(\([^)]+\))?:'
+          # Renovate / Dependabot による依存関係更新コミット
           DEPS_RE='^(chore|fix)\(deps[^)]*\)!?:'
+          # Renovateは公開物に含まれる依存（dependencies / go.mod の require 等）の更新を fix(deps)、
+          # devDependencies・peerDependencies・lock file maintenance 等の更新を chore(deps) として
+          # コミットする（semanticCommitTypeの既定動作）。chore(deps) はパッケージの利用者に影響しない
+          RUNTIME_DEPS_RE='^fix\(deps[^)]*\)!?:'
+          # Dependabotは "bump x from 1.2.3 to 2.0.0" の形式で、depTypeを件名に反映しない。
+          # このorgではDependabotは主にセキュリティアラート対応で使われるため、安全側に倒して影響ありとみなす
+          DEPENDABOT_RE='^chore\(deps[^)]*\): [Bb]ump '
+          # Renovateのvulnerability alerts由来の更新は件名に "[SECURITY]" が付く
+          SECURITY_RE='\[[Ss][Ee][Cc][Uu][Rr][Ii][Tt][Yy]\]'
+          # GitHub Actionsの更新はCI設定のみの変更のため、公開物に影響しない
           CI_DEPS_RE=' action (digest )?to '
+          # 公開物（パッケージの成果物）に影響しないコミットタイプ
           NON_IMPACTING_RE='^(ci|docs|test|style|chore)(\([^)]+\))?:'
+          # fix(ci): のように、typeがfixでもscopeがCI/リリース設定のものは公開物に影響しない
+          # （"!" 付きの破壊的変更はこの判定に含めず、影響ありとして扱う）
+          NON_IMPACTING_SCOPE_RE='^[a-z]+\((ci|release|workflows?|github|actions)\):'
+          # 依存関係のmajor更新の検出:
+          # Renovateはmajor更新のときのみ "to v9" のようにmajorバージョンだけを件名に含める
+          # （separateMajorMinorが有効な前提。minor/patchは "to v9.1.0" の形式になる）
+          # グループ更新のmajorは "(major)" が件名に付与される
           MAJOR_TO_RE='to v?[0-9]+([^.0-9]|$)'
           MAJOR_GROUP_RE='\(major\)'
+          # Dependabot形式 "bump x from 1.2.3 to 2.0.0" のmajor更新の検出用
           FROM_TO_RE='from v?([0-9]+)[^ ]* to v?([0-9]+)'
 
           IMPACTING_COUNT=0
           DEPS_COUNT=0
           MAJOR_DEPS_COUNT=0
+          SECURITY_COUNT=0
+          OLDEST_IMPACTING_TS=""
           VERSION_BUMP="patch"
 
-          while IFS= read -r -d '' commit; do
-              commit="${commit#"${commit%%[![:space:]]*}"}"
+          while IFS= read -r -d '' record; do
+              # git log の format: 区切りで先頭に付く改行を除去してから判定する
+              record="${record#"${record%%[![:space:]]*}"}"
+              # 1行目はcommitter timestamp（%ct）、2行目以降がコミットメッセージ本文
+              commit_ts="${record%%$'\n'*}"
+              commit="${record#*$'\n'}"
               subject="${commit%%$'\n'*}"
 
+              # マージコミットは判定対象外
               if [[ $subject =~ ^Merge\  ]]; then
                   continue
               fi
 
+              impacting="false"
               if [[ $subject =~ $DEPS_RE ]]; then
+                  # GitHub Actionsの更新は公開物に影響しないため対象外
                   if [[ $subject =~ $CI_DEPS_RE ]]; then
                       continue
                   fi
-                  IMPACTING_COUNT=$((IMPACTING_COUNT + 1))
+                  security="false"
+                  if [[ $subject =~ $SECURITY_RE ]]; then
+                      security="true"
+                  fi
+                  # devDependencies等の更新（chore(deps)）は公開物に影響しないため対象外。
+                  # ただしセキュリティ更新とDependabotによる更新は安全側に倒して対象に含める
+                  if ! [[ $subject =~ $RUNTIME_DEPS_RE ]] && [ "$security" != "true" ] && ! [[ $subject =~ $DEPENDABOT_RE ]]; then
+                      continue
+                  fi
+                  impacting="true"
                   DEPS_COUNT=$((DEPS_COUNT + 1))
+                  if [ "$security" = "true" ]; then
+                      SECURITY_COUNT=$((SECURITY_COUNT + 1))
+                  fi
                   if [[ $subject =~ $MAJOR_TO_RE ]] || [[ $subject =~ $MAJOR_GROUP_RE ]]; then
                       MAJOR_DEPS_COUNT=$((MAJOR_DEPS_COUNT + 1))
                   elif [[ $subject =~ $FROM_TO_RE ]] && [ "${BASH_REMATCH[1]}" != "${BASH_REMATCH[2]}" ]; then
                       MAJOR_DEPS_COUNT=$((MAJOR_DEPS_COUNT + 1))
                   fi
+                  # 依存更新コミットのsquash本文には更新先パッケージのリリースノートが含まれることがあり、
+                  # 本文のBREAKING CHANGE検出は誤判定になるため件名のみで判定する
                   if [[ $subject =~ $BREAKING_RE ]]; then
                       VERSION_BUMP="major"
                   fi
-              elif [[ $subject =~ $NON_IMPACTING_RE ]]; then
+              elif [[ $subject =~ $NON_IMPACTING_RE ]] || [[ $subject =~ $NON_IMPACTING_SCOPE_RE ]]; then
+                  # 公開物に影響しないため、リリース要否・リスク・バージョン判定の対象外
                   continue
               else
-                  IMPACTING_COUNT=$((IMPACTING_COUNT + 1))
+                  impacting="true"
+                  # 本文のBREAKING CHANGEはfooter形式（行頭）のみ検出する
+                  # （PRテンプレートのチェックボックス等の文中出現による誤判定を防ぐ）
                   if printf '%s\n' "$commit" | grep -qE '^BREAKING[- ]CHANGE:' || [[ $subject =~ $BREAKING_RE ]]; then
                       VERSION_BUMP="major"
                   elif [[ $subject =~ $FEAT_RE ]] && [ "$VERSION_BUMP" != "major" ]; then
                       VERSION_BUMP="minor"
                   fi
               fi
-          done < <(git log "$RANGE" --pretty=format:%B%x00)
 
-          SHOULD_RELEASE="false"
-          if [ $IMPACTING_COUNT -gt 0 ]; then
-              SHOULD_RELEASE="true"
+              if [ "$impacting" = "true" ]; then
+                  IMPACTING_COUNT=$((IMPACTING_COUNT + 1))
+                  if [[ $commit_ts =~ ^[0-9]+$ ]] && { [ -z "$OLDEST_IMPACTING_TS" ] || [ "$commit_ts" -lt "$OLDEST_IMPACTING_TS" ]; }; then
+                      OLDEST_IMPACTING_TS="$commit_ts"
+                  fi
+              fi
+          done < <(git log "$RANGE" --pretty=format:%ct%n%B%x00 "${PATHSPEC[@]}")
+
+          OLDEST_AGE_DAYS=0
+          OLDEST_AGE_LABEL="(none)"
+          if [ -n "$OLDEST_IMPACTING_TS" ]; then
+              OLDEST_AGE_DAYS=$(( ($(date +%s) - OLDEST_IMPACTING_TS) / 86400 ))
+              OLDEST_AGE_LABEL="${OLDEST_AGE_DAYS} days ago"
           fi
 
+          # 公開物に影響する変更が依存関係のminor/patch更新のみの場合、自動リリース可能（low）と判定する
           RELEASE_RISK="high"
-          if [ "$SHOULD_RELEASE" = "true" ] \
+          if [ $IMPACTING_COUNT -gt 0 ] \
               && [ $DEPS_COUNT -eq $IMPACTING_COUNT ] \
               && [ $MAJOR_DEPS_COUNT -eq 0 ] \
               && [ "$VERSION_BUMP" = "patch" ]; then
               RELEASE_RISK="low"
           fi
 
+          # 低リスク（依存関係のminor/patch更新のみ）のリリースは、利用側リポジトリでの更新頻度を
+          # 抑えるため、一定件数が溜まるか一定日数が経過するまで見送る。
+          # 人手の変更やmajor更新を含む（high）場合とセキュリティ更新を含む場合は即時にリリース対象とする
+          SHOULD_RELEASE="false"
+          DEFERRED="false"
+          if [ $IMPACTING_COUNT -gt 0 ]; then
+              if [ "$RELEASE_RISK" = "high" ] \
+                  || [ $SECURITY_COUNT -gt 0 ] \
+                  || [ $IMPACTING_COUNT -ge "$MIN_LOW_RISK_COMMITS" ] \
+                  || { [ "$MAX_LOW_RISK_AGE_DAYS" -gt 0 ] && [ $OLDEST_AGE_DAYS -ge "$MAX_LOW_RISK_AGE_DAYS" ]; }; then
+                  SHOULD_RELEASE="true"
+              else
+                  DEFERRED="true"
+              fi
+          fi
+
           {
-              echo "should_release=$SHOULD_RELEASE"
+              echo "commit_count=$COMMIT_COUNT"
+              echo "impacting_count=$IMPACTING_COUNT"
               echo "recommended_release_type=$VERSION_BUMP"
+              echo "should_release=$SHOULD_RELEASE"
               echo "release_risk=$RELEASE_RISK"
+              echo "deferred=$DEFERRED"
           } >> "$GITHUB_OUTPUT"
 
           {
               echo "- Last tag: $LAST_TAG"
-              echo "- Commits: $COMMIT_COUNT (impacting: $IMPACTING_COUNT, deps: $DEPS_COUNT, major deps: $MAJOR_DEPS_COUNT)"
+              echo "- Commits: $COMMIT_COUNT (impacting: $IMPACTING_COUNT, deps: $DEPS_COUNT, major deps: $MAJOR_DEPS_COUNT, security: $SECURITY_COUNT)"
+              echo "- Oldest impacting change: $OLDEST_AGE_LABEL"
               echo "- Version bump: $VERSION_BUMP"
-              echo "- Should release: $SHOULD_RELEASE"
               echo "- Release risk: $RELEASE_RISK"
+              echo "- Should release: $SHOULD_RELEASE"
+              if [ "$DEFERRED" = "true" ]; then
+                  echo "- Deferred: 低リスクの変更が ${IMPACTING_COUNT} 件（閾値 ${MIN_LOW_RISK_COMMITS} 件）、経過 ${OLDEST_AGE_DAYS} 日（閾値 ${MAX_LOW_RISK_AGE_DAYS} 日）のため、リリースを見送りました"
+              fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+  close-stale-release-pr:
+    # リリース対象がなくなった（または低リスクのため見送りになった）場合、前回の実行で作成された
+    # リリースPRが古いbump内容のまま残るため、閉じておく。次に条件を満たしたときに再作成される。
+    needs: get-release-type
+    # schedule実行ではinputsが存在しないため、イベント種別で分岐する（workflow_dispatchでrelease_typeを
+    # 手動指定した場合のみ、強制リリースとしてクローズをスキップする）
+    if: needs.get-release-type.outputs.should_release != 'true' && (github.event_name != 'workflow_dispatch' || inputs.release_type == 'auto' || inputs.release_type == '')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close stale release PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.REPO_ONLY_GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          DEFERRED: ${{ needs.get-release-type.outputs.deferred }}
+          IMPACTING_COUNT: ${{ needs.get-release-type.outputs.impacting_count }}
+        run: |
+          BRANCH="release/next"
+
+          URL=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --label release --json url --jq '.[0].url // empty')
+          if [ -z "$URL" ]; then
+              echo "閉じる対象のリリースPRはありません（branch: $BRANCH）。"
+              exit 0
+          fi
+
+          # holdラベルが付与されているPRは人手で扱っている可能性があるため触らない
+          PR_LABELS=$(gh pr view "$URL" --json labels --jq '[.labels[].name] | join(" ")')
+          if [[ " $PR_LABELS " == *" hold "* ]]; then
+              echo "holdラベルが付与されているため、リリースPRは閉じません: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+          fi
+
+          if [ "$DEFERRED" = "true" ]; then
+              COMMENT="公開物に影響する変更が依存関係のminor/patch更新のみ（${IMPACTING_COUNT}件）で、リリースを行う件数・経過日数の条件を満たしていないため、このリリースPRを閉じます。条件を満たした時点で自動的に再作成されます。"
+          else
+              COMMENT="前回のタグ以降に公開物に影響する変更がなくなったため、このリリースPRを閉じます。必要になった時点で自動的に再作成されます。"
+          fi
+          gh pr merge --disable-auto "$URL" 2>/dev/null || true
+          gh pr close "$URL" --comment "$COMMENT" --delete-branch
+          echo "リリース対象がないため、古いリリースPRを閉じました: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
 
   create-release-pr:
     needs: get-release-type
-    if: needs.get-release-type.outputs.should_release == 'true' || (inputs.release_type != 'auto' && inputs.release_type != '')
+    # release_typeによる強制リリースはworkflow_dispatchで明示的に指定された場合のみ許可する
+    if: needs.get-release-type.outputs.should_release == 'true' || (github.event_name == 'workflow_dispatch' && inputs.release_type != 'auto' && inputs.release_type != '')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -178,6 +329,7 @@ jobs:
           delete-branch: true
 
       - name: Reconcile auto-merge
+        id: automerge
         if: steps.pr.outputs.pull-request-url != ''
         shell: bash
         env:
@@ -209,3 +361,73 @@ jobs:
               gh pr merge --disable-auto "$URL" 2>/dev/null || true
               echo "auto-mergeは有効化されていません（release_risk: $RELEASE_RISK）: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
           fi
+          echo "armed=$ARM" >> "$GITHUB_OUTPUT"
+
+      - name: Merge when required checks pass
+        # GitHubのauto-mergeは、ブランチプロテクションでレビューが必須になっている場合、
+        # bypass設定があっても完了しない（レビュー待ちで止まる）。
+        # 一方でユーザー自身による直接マージにはbypassが適用されるため、required checksの完了を待って
+        # 直接マージする。失敗した場合はauto-mergeを有効化したまま終了し、従来の挙動にフォールバックする。
+        if: steps.automerge.outputs.armed == 'true'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.REPO_ONLY_GITHUB_TOKEN }}
+          URL: ${{ steps.pr.outputs.pull-request-url }}
+          TIMEOUT_MINUTES: "30"
+        run: |
+          # type: number の入力は "30.0" のような小数表記で渡ることがあるため整数に正規化する。
+          # 直接マージは補助機能のため、整数として解釈できない場合は警告してスキップする（auto-mergeは有効のまま）
+          TIMEOUT_MINUTES="${TIMEOUT_MINUTES%%.*}"
+          if ! [[ $TIMEOUT_MINUTES =~ ^[0-9]+$ ]] || [ "$TIMEOUT_MINUTES" -eq 0 ]; then
+              echo "::warning::auto_merge_timeout_minutes が整数として解釈できない、または0のため、直接マージをスキップします。auto-mergeは有効のままです: $URL"
+              exit 0
+          fi
+          DEADLINE=$((SECONDS + TIMEOUT_MINUTES * 60))
+          while :; do
+              STATE=$(gh pr view "$URL" --json state --jq .state)
+              if [ "$STATE" != "OPEN" ]; then
+                  echo "リリースPRは既に $STATE のため、直接マージは行いません: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
+                  exit 0
+              fi
+
+              # 待機中にholdラベルが付与された場合は中止する（緊急停止用）
+              PR_LABELS=$(gh pr view "$URL" --json labels --jq '[.labels[].name] | join(" ")')
+              if [[ " $PR_LABELS " == *" hold "* ]]; then
+                  gh pr merge --disable-auto "$URL" 2>/dev/null || true
+                  echo "holdラベルが付与されたため、自動リリースを中止しました: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
+                  exit 0
+              fi
+
+              # required checksを優先し、未設定の場合は全チェックを対象にする。
+              # チェックがまだ報告されていない場合はgh pr checksが失敗するため、pendingとして扱う
+              CHECKS=$(gh pr checks "$URL" --required --json bucket,name 2>/dev/null || echo "[]")
+              if [ "$CHECKS" = "[]" ]; then
+                  CHECKS=$(gh pr checks "$URL" --json bucket,name 2>/dev/null || echo "[]")
+              fi
+              FAILED=$(printf '%s' "$CHECKS" | jq -r '[.[] | select(.bucket == "fail" or .bucket == "cancel") | .name] | join(", ")')
+              PENDING=$(printf '%s' "$CHECKS" | jq -r '[.[] | select(.bucket == "pending") | .name] | join(", ")')
+
+              if [ -n "$FAILED" ]; then
+                  echo "::warning::チェックが失敗しているため、直接マージは行いません（$FAILED）。auto-mergeは有効のままです: $URL"
+                  echo "チェックが失敗しているため、自動リリースは保留中です（$FAILED）: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
+                  exit 0
+              fi
+
+              if [ "$CHECKS" != "[]" ] && [ -z "$PENDING" ]; then
+                  if gh pr merge --squash "$URL"; then
+                      echo "required checksが通過したため、リリースPRをマージしました: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
+                      exit 0
+                  fi
+                  echo "::warning::直接マージに失敗しました。auto-mergeは有効のままのため、レビュー要件等が満たされれば自動的にマージされます: $URL"
+                  echo "直接マージに失敗しました。auto-mergeは有効のままです: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
+                  exit 0
+              fi
+
+              if [ $SECONDS -ge $DEADLINE ]; then
+                  echo "::warning::${TIMEOUT_MINUTES}分以内にチェックが完了しませんでした（pending: ${PENDING:-未報告}）。auto-mergeは有効のままです: $URL"
+                  echo "チェックの完了を待機中にタイムアウトしました。auto-mergeは有効のままです: $URL" | tee -a "$GITHUB_STEP_SUMMARY"
+                  exit 0
+              fi
+              echo "チェックの完了を待機中です（pending: ${PENDING:-未報告}）..."
+              sleep 60
+          done
