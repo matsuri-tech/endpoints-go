@@ -25,6 +25,7 @@ jobs:
       release_risk: ${{ steps.check.outputs.release_risk }}
       impacting_count: ${{ steps.check.outputs.impacting_count }}
       deferred: ${{ steps.check.outputs.deferred }}
+      last_tag: ${{ steps.check.outputs.last_tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -217,6 +218,7 @@ jobs:
               echo "should_release=$SHOULD_RELEASE"
               echo "release_risk=$RELEASE_RISK"
               echo "deferred=$DEFERRED"
+              echo "last_tag=$LAST_TAG"
           } >> "$GITHUB_OUTPUT"
 
           {
@@ -312,6 +314,31 @@ jobs:
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "Bumped version to: $NEW_VERSION"
 
+      - name: Generate release notes for PR body
+        id: notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.REPO_ONLY_GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          NEW_VERSION: ${{ steps.bump.outputs.new_version }}
+          LAST_TAG: ${{ needs.get-release-type.outputs.last_tag }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          # マージ後にcreate-tag.ymlが `gh release create --generate-notes` で作るGitHub Releaseと
+          # 同じ形式の変更一覧を、リリースPRの本文にも載せる（レビュー時に差分内容が分かるようにする）。
+          # タグはまだ存在しないため、target_commitishにmasterのSHAを渡して生成する
+          BODY_FILE="$RUNNER_TEMP/release-notes.md"
+          ARGS=(-f tag_name="v$NEW_VERSION" -f target_commitish="$TARGET_SHA")
+          if [ -n "$LAST_TAG" ] && [ "$LAST_TAG" != "(none)" ]; then
+              ARGS+=(-f previous_tag_name="$LAST_TAG")
+          fi
+          if ! gh api "repos/$REPO/releases/generate-notes" "${ARGS[@]}" --jq .body > "$BODY_FILE"; then
+              # 本文生成は補助機能のため、失敗してもリリースPRの作成は継続する
+              echo "::warning::リリースノートの生成に失敗しました。PR本文はデフォルトの文言になります"
+              printf 'Automated changes by [create-pull-request](https://github.com/peter-evans/create-pull-request) GitHub action\n' > "$BODY_FILE"
+          fi
+          echo "body_path=$BODY_FILE" >> "$GITHUB_OUTPUT"
+
       - name: Create Pull Request
         id: pr
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
@@ -319,6 +346,7 @@ jobs:
           token: ${{ secrets.REPO_ONLY_GITHUB_TOKEN }}
           commit-message: "chore: bump version to v${{ steps.bump.outputs.new_version }}"
           title: "Release Note: v${{ steps.bump.outputs.new_version }}"
+          body-path: ${{ steps.notes.outputs.body_path }}
           branch: release/next
           base: master
           # このリポジトリのREPO_ONLY_GITHUB_TOKENはhrdtbs個人のPATのため、
