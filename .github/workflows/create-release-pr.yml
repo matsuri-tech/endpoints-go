@@ -322,13 +322,16 @@ jobs:
           REPO: ${{ github.repository }}
           NEW_VERSION: ${{ steps.bump.outputs.new_version }}
           LAST_TAG: ${{ needs.get-release-type.outputs.last_tag }}
-          TARGET_SHA: ${{ github.sha }}
+          # リリースPRのbaseブランチ（create-pull-requestのbaseと合わせる）。
+          # github.shaはworkflow_dispatchをmaster以外のrefで実行すると別コミットになり、
+          # 本文の変更一覧がPRの実際の差分とズレるため使わない
+          TARGET_BRANCH: master
         run: |
           # マージ後にcreate-tag.ymlが `gh release create --generate-notes` で作るGitHub Releaseと
           # 同じ形式の変更一覧を、リリースPRの本文にも載せる（レビュー時に差分内容が分かるようにする）。
-          # タグはまだ存在しないため、target_commitishにmasterのSHAを渡して生成する
+          # タグはまだ存在しないため、target_commitishにbaseブランチを渡して生成する
           BODY_FILE="$RUNNER_TEMP/release-notes.md"
-          ARGS=(-f tag_name="v$NEW_VERSION" -f target_commitish="$TARGET_SHA")
+          ARGS=(-f tag_name="v$NEW_VERSION" -f target_commitish="$TARGET_BRANCH")
           if [ -n "$LAST_TAG" ] && [ "$LAST_TAG" != "(none)" ]; then
               ARGS+=(-f previous_tag_name="$LAST_TAG")
           fi
