@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v5"
@@ -822,6 +824,59 @@ func TestEchoWrapper_GenerateOpenApi_SuccessStatus(t *testing.T) {
 			responses := op.Responses.Map()
 			assert.Len(t, responses, 1)
 			assert.NotNil(t, op.Responses.Status(tt.want), "responses: %v", responses)
+		})
+	}
+}
+
+type noopValidator struct{}
+
+func (noopValidator) Validate(any) error { return nil }
+
+func TestEchoWrapper_SuccessStatus_Runtime(t *testing.T) {
+	noContent := func(c *echo.Context, req SampleModel) error { return nil }
+	withBody := func(c *echo.Context, req CreateSampleInput) (CreateSampleOutput, error) {
+		return CreateSampleOutput{}, nil
+	}
+	noRequest := func(c *echo.Context) (SampleModel, error) { return SampleModel{}, nil }
+
+	e := echo.New()
+	e.Validator = noopValidator{}
+	ew := NewEchoWrapper(e)
+	EwPOST(ew, "/default", withBody, Desc{Name: "default"})
+	EwPOST(ew, "/created", withBody, Desc{Name: "created", SuccessStatus: http.StatusCreated})
+	EwPOSTNoRequest(ew, "/no-request", noRequest, Desc{Name: "noRequest", SuccessStatus: http.StatusAccepted})
+	EwPOSTNoContent(ew, "/no-content", noContent, Desc{Name: "noContent"})
+	EwPOSTNoContent(ew, "/no-content-override", noContent, Desc{Name: "noContentOverride", SuccessStatus: http.StatusAccepted})
+	g := ew.Group("/group")
+	GwPUTNoContent(g, "/no-content-override", noContent, Desc{Name: "groupNoContentOverride", SuccessStatus: http.StatusAccepted})
+
+	schema, err := ew.endpoints.generateOpenApiSchema(OpenApiGeneratorConfig{})
+	require.NoError(t, err)
+
+	tests := []struct {
+		path   string
+		method string
+		want   int
+	}{
+		{"/default", http.MethodPost, http.StatusOK},
+		{"/created", http.MethodPost, http.StatusCreated},
+		{"/no-request", http.MethodPost, http.StatusAccepted},
+		{"/no-content", http.MethodPost, http.StatusNoContent},
+		{"/no-content-override", http.MethodPost, http.StatusAccepted},
+		{"/group/no-content-override", http.MethodPut, http.StatusAccepted},
+	}
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, strings.NewReader("{}"))
+			req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rec := httptest.NewRecorder()
+			e.ServeHTTP(rec, req)
+			assert.Equal(t, tt.want, rec.Code, "body: %s", rec.Body.String())
+
+			// 実行時のステータスと OpenAPI の responses が一致すること
+			op := schema.Paths.Value(tt.path).GetOperation(tt.method)
+			require.NotNil(t, op)
+			assert.NotNil(t, op.Responses.Status(rec.Code))
 		})
 	}
 }

@@ -152,7 +152,7 @@ func (w *EchoWrapper) DELETETyped(path string, h echo.HandlerFunc, desc Desc, re
 	return w.Echo.DELETE(path, h, m...)
 }
 
-func makeHandler[Req any, Resp any](h func(ctx *echo.Context, req Req) (Resp, error)) echo.HandlerFunc {
+func makeHandler[Req any, Resp any](h func(ctx *echo.Context, req Req) (Resp, error), status int) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		var r Req
 		if err := c.Bind(&r); err != nil {
@@ -167,22 +167,22 @@ func makeHandler[Req any, Resp any](h func(ctx *echo.Context, req Req) (Resp, er
 			return err
 		}
 
-		return c.JSON(http.StatusOK, resp)
+		return c.JSON(status, resp)
 	}
 }
 
-func makeHandlerNoRequest[Resp any](h func(ctx *echo.Context) (Resp, error)) echo.HandlerFunc {
+func makeHandlerNoRequest[Resp any](h func(ctx *echo.Context) (Resp, error), status int) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		resp, err := h(c)
 		if err != nil {
 			return err
 		}
 
-		return c.JSON(http.StatusOK, resp)
+		return c.JSON(status, resp)
 	}
 }
 
-func makeHandlerNoContent[Req any](h func(ctx *echo.Context, req Req) error) echo.HandlerFunc {
+func makeHandlerNoContent[Req any](h func(ctx *echo.Context, req Req) error, status int) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		var r Req
 		if err := c.Bind(&r); err != nil {
@@ -196,7 +196,7 @@ func makeHandlerNoContent[Req any](h func(ctx *echo.Context, req Req) error) ech
 			return err
 		}
 
-		return c.NoContent(http.StatusNoContent)
+		return c.NoContent(status)
 	}
 }
 
@@ -207,7 +207,7 @@ NOTE: Go1.20時点では、メソッドがtype parameterをもてないので関
 */
 func EwGET[Resp any](w *EchoWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return w.GETTyped(path, makeHandlerNoRequest(h), desc, resp, m...)
+	return w.GETTyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, resp, m...)
 }
 
 /*
@@ -218,7 +218,7 @@ Requestを受け取らないケースでは EwPOSTNoRequest を使い、Response
 func EwPOST[Req any, Resp any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
 	var resp Resp
-	return w.POSTTyped(path, makeHandler(h), desc, req, resp, m...)
+	return w.POSTTyped(path, makeHandler(h, desc.successStatusOr(http.StatusOK)), desc, req, resp, m...)
 }
 
 /*
@@ -226,7 +226,7 @@ func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、POSTのA
 */
 func EwPOSTNoRequest[Resp any](w *EchoWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return w.POSTTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+	return w.POSTTyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, nil, resp, m...)
 }
 
 /*
@@ -234,7 +234,8 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、POSTのAPI�
 */
 func EwPOSTNoContent[Req any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return w.POSTTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
+	desc = desc.withDefaultSuccessStatus(http.StatusNoContent)
+	return w.POSTTyped(path, makeHandlerNoContent(h, desc.SuccessStatus), desc, req, nil, m...)
 }
 
 /*
@@ -245,7 +246,7 @@ Requestを受け取らないケースでは EwPUTNoRequest を使い、Response�
 func EwPUT[Req any, Resp any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
 	var resp Resp
-	return w.PUTTyped(path, makeHandler(h), desc, req, resp, m...)
+	return w.PUTTyped(path, makeHandler(h, desc.successStatusOr(http.StatusOK)), desc, req, resp, m...)
 }
 
 /*
@@ -253,7 +254,7 @@ func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、PUTのAP
 */
 func EwPUTNoRequest[Resp any](w *EchoWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return w.PUTTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+	return w.PUTTyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, nil, resp, m...)
 }
 
 /*
@@ -261,7 +262,8 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、PUTのAPI�
 */
 func EwPUTNoContent[Req any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return w.PUTTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
+	desc = desc.withDefaultSuccessStatus(http.StatusNoContent)
+	return w.PUTTyped(path, makeHandlerNoContent(h, desc.SuccessStatus), desc, req, nil, m...)
 }
 
 /*
@@ -272,7 +274,7 @@ Requestを受け取らないケースでは EwPATCHNoRequest を使い、Respons
 func EwPATCH[Req any, Resp any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
 	var resp Resp
-	return w.PATCHTyped(path, makeHandler(h), desc, req, resp, m...)
+	return w.PATCHTyped(path, makeHandler(h, desc.successStatusOr(http.StatusOK)), desc, req, resp, m...)
 }
 
 /*
@@ -280,7 +282,7 @@ func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、PATCHの
 */
 func EwPATCHNoRequest[Resp any](w *EchoWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return w.PATCHTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+	return w.PATCHTyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, nil, resp, m...)
 }
 
 /*
@@ -288,7 +290,8 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、PATCHのAPI
 */
 func EwPATCHNoContent[Req any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return w.PATCHTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
+	desc = desc.withDefaultSuccessStatus(http.StatusNoContent)
+	return w.PATCHTyped(path, makeHandlerNoContent(h, desc.SuccessStatus), desc, req, nil, m...)
 }
 
 /*
@@ -299,7 +302,7 @@ Requestを受け取らないケースでは EwDELETENoRequest を使い、Respon
 func EwDELETE[Req any, Resp any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
 	var resp Resp
-	return w.DELETETyped(path, makeHandler(h), desc, req, resp, m...)
+	return w.DELETETyped(path, makeHandler(h, desc.successStatusOr(http.StatusOK)), desc, req, resp, m...)
 }
 
 /*
@@ -307,7 +310,7 @@ func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、DELETE�
 */
 func EwDELETENoRequest[Resp any](w *EchoWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return w.DELETETyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+	return w.DELETETyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, nil, resp, m...)
 }
 
 /*
@@ -315,7 +318,8 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、DELETEのAP
 */
 func EwDELETENoContent[Req any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return w.DELETETyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
+	desc = desc.withDefaultSuccessStatus(http.StatusNoContent)
+	return w.DELETETyped(path, makeHandlerNoContent(h, desc.SuccessStatus), desc, req, nil, m...)
 }
 
 func (w *EchoWrapper) Group(prefix string, m ...echo.MiddlewareFunc) *GroupWrapper {
@@ -429,7 +433,7 @@ NOTE: Go1.20時点では、メソッドがtype parameterをもてないので関
 */
 func GwGET[Resp any](g *GroupWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return g.GETTyped(path, makeHandlerNoRequest(h), desc, resp, m...)
+	return g.GETTyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, resp, m...)
 }
 
 /*
@@ -442,7 +446,7 @@ Requestを受け取らないケースでは GwPOSTNoRequest を使い、Response
 func GwPOST[Req any, Resp any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
 	var resp Resp
-	return g.POSTTyped(path, makeHandler(h), desc, req, resp, m...)
+	return g.POSTTyped(path, makeHandler(h, desc.successStatusOr(http.StatusOK)), desc, req, resp, m...)
 }
 
 /*
@@ -452,7 +456,7 @@ func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、POSTのA
 */
 func GwPOSTNoRequest[Resp any](g *GroupWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return g.POSTTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+	return g.POSTTyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, nil, resp, m...)
 }
 
 /*
@@ -462,7 +466,8 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、POSTのAPI�
 */
 func GwPOSTNoContent[Req any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return g.POSTTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
+	desc = desc.withDefaultSuccessStatus(http.StatusNoContent)
+	return g.POSTTyped(path, makeHandlerNoContent(h, desc.SuccessStatus), desc, req, nil, m...)
 }
 
 /*
@@ -475,7 +480,7 @@ Requestを受け取らないケースでは GwPUTNoRequest を使い、Response�
 func GwPUT[Req any, Resp any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
 	var resp Resp
-	return g.PUTTyped(path, makeHandler(h), desc, req, resp, m...)
+	return g.PUTTyped(path, makeHandler(h, desc.successStatusOr(http.StatusOK)), desc, req, resp, m...)
 }
 
 /*
@@ -485,7 +490,7 @@ func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、PUTのAP
 */
 func GwPUTNoRequest[Resp any](g *GroupWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return g.PUTTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+	return g.PUTTyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, nil, resp, m...)
 }
 
 /*
@@ -495,7 +500,8 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、PUTのAPI�
 */
 func GwPUTNoContent[Req any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return g.PUTTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
+	desc = desc.withDefaultSuccessStatus(http.StatusNoContent)
+	return g.PUTTyped(path, makeHandlerNoContent(h, desc.SuccessStatus), desc, req, nil, m...)
 }
 
 /*
@@ -508,7 +514,7 @@ Requestを受け取らないケースでは GwPATCHNoRequest を使い、Respons
 func GwPATCH[Req any, Resp any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
 	var resp Resp
-	return g.PATCHTyped(path, makeHandler(h), desc, req, resp, m...)
+	return g.PATCHTyped(path, makeHandler(h, desc.successStatusOr(http.StatusOK)), desc, req, resp, m...)
 }
 
 /*
@@ -518,7 +524,7 @@ func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、PATCHの
 */
 func GwPATCHNoRequest[Resp any](g *GroupWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return g.PATCHTyped(path, makeHandlerNoRequest(h), desc, nil, resp, m...)
+	return g.PATCHTyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, nil, resp, m...)
 }
 
 /*
@@ -528,7 +534,8 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、PATCHのAPI
 */
 func GwPATCHNoContent[Req any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return g.PATCHTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
+	desc = desc.withDefaultSuccessStatus(http.StatusNoContent)
+	return g.PATCHTyped(path, makeHandlerNoContent(h, desc.SuccessStatus), desc, req, nil, m...)
 }
 
 /*
@@ -540,7 +547,7 @@ Requestを受け取らないケースでは GwDELETENoRequest を使い、Respon
 */
 func GwDELETE[Resp any](g *GroupWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return g.DELETETyped(path, makeHandlerNoRequest(h), desc, resp, m...)
+	return g.DELETETyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, resp, m...)
 }
 
 /*
@@ -550,7 +557,7 @@ func(echo.Context) (Resp, error)の型をもつhandlerを受け取り、DELETE�
 */
 func GwDELETENoRequest[Resp any](g *GroupWrapper, path string, h func(ctx *echo.Context) (Resp, error), desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var resp Resp
-	return g.DELETETyped(path, makeHandlerNoRequest(h), desc, resp, m...)
+	return g.DELETETyped(path, makeHandlerNoRequest(h, desc.successStatusOr(http.StatusOK)), desc, resp, m...)
 }
 
 /*
@@ -559,7 +566,8 @@ EwDELETENoContent のGroup版
 func(echo.Context, Req) errorの型をもつhandlerを受け取り、DELETEのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして204を返す。
 */
 func GwDELETENoContent[Req any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
-	return g.DELETETyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), nil, m...)
+	desc = desc.withDefaultSuccessStatus(http.StatusNoContent)
+	return g.DELETETyped(path, makeHandlerNoContent(h, desc.SuccessStatus), desc, nil, m...)
 }
 
 type Desc struct {
@@ -572,7 +580,15 @@ type Desc struct {
 
 	// SuccessStatus は成功時に返す HTTP ステータスコード。OpenAPI の responses に反映される。
 	// 0 の場合は 200 とみなす（*NoContent 系のヘルパーでは 204 とみなす）。
+	// Ew*/Gw* の型付きヘルパーでは、実行時のレスポンスもこの値で返す。
 	SuccessStatus int
+}
+
+func (d Desc) successStatusOr(def int) int {
+	if d.SuccessStatus == 0 {
+		return def
+	}
+	return d.SuccessStatus
 }
 
 func (d Desc) withDefaultSuccessStatus(status int) Desc {
