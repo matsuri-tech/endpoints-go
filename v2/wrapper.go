@@ -51,10 +51,11 @@ func (w *EchoWrapper) AddFrontends(frontends ...string) {
 // に限り、直接呼んでよい
 func (w *EchoWrapper) AddAPI(path string, desc Desc, method string) {
 	w.endpoints.addAPI(API{
-		Name:   desc.Name,
-		Path:   path + desc.query(),
-		Desc:   desc.Desc,
-		Method: method,
+		Name:          desc.Name,
+		Path:          path + desc.query(),
+		Desc:          desc.Desc,
+		Method:        method,
+		SuccessStatus: desc.SuccessStatus,
 	})
 }
 
@@ -64,12 +65,13 @@ func (w *EchoWrapper) AddAPI(path string, desc Desc, method string) {
 // に限り、直接呼んでよい
 func (w *EchoWrapper) AddAPITyped(path string, desc Desc, method string, req any, resp any) {
 	w.endpoints.addAPI(API{
-		Name:     desc.Name,
-		Path:     path + desc.query(),
-		Desc:     desc.Desc,
-		Method:   method,
-		Request:  req,
-		Response: resp,
+		Name:          desc.Name,
+		Path:          path + desc.query(),
+		Desc:          desc.Desc,
+		Method:        method,
+		SuccessStatus: desc.SuccessStatus,
+		Request:       req,
+		Response:      resp,
 	})
 }
 
@@ -232,7 +234,7 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、POSTのAPI�
 */
 func EwPOSTNoContent[Req any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return w.POSTTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
+	return w.POSTTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
 }
 
 /*
@@ -259,7 +261,7 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、PUTのAPI�
 */
 func EwPUTNoContent[Req any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return w.PUTTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
+	return w.PUTTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
 }
 
 /*
@@ -286,7 +288,7 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、PATCHのAPI
 */
 func EwPATCHNoContent[Req any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return w.PATCHTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
+	return w.PATCHTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
 }
 
 /*
@@ -313,7 +315,7 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、DELETEのAP
 */
 func EwDELETENoContent[Req any](w *EchoWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return w.DELETETyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
+	return w.DELETETyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
 }
 
 func (w *EchoWrapper) Group(prefix string, m ...echo.MiddlewareFunc) *GroupWrapper {
@@ -342,27 +344,29 @@ func (w *EchoWrapper) GroupWithVersionsAndFrontends(
 // に限り、直接呼んでよい
 func (g *GroupWrapper) AddAPI(path string, desc Desc, method string) {
 	g.parent.endpoints.addAPI(API{
-		Name:       desc.Name,
-		Path:       g.prefix + path + desc.query(),
-		Desc:       desc.Desc,
-		Method:     method,
-		AuthSchema: desc.AuthSchema,
-		Versions:   append(g.versions, desc.Versions...),
-		Frontends:  append(g.frontends, desc.Frontends...),
+		Name:          desc.Name,
+		Path:          g.prefix + path + desc.query(),
+		Desc:          desc.Desc,
+		Method:        method,
+		SuccessStatus: desc.SuccessStatus,
+		AuthSchema:    desc.AuthSchema,
+		Versions:      append(g.versions, desc.Versions...),
+		Frontends:     append(g.frontends, desc.Frontends...),
 	})
 }
 
 func (g *GroupWrapper) AddAPITyped(path string, desc Desc, method string, req any, resp any) {
 	g.parent.endpoints.addAPI(API{
-		Name:       desc.Name,
-		Path:       g.prefix + path + desc.query(),
-		Desc:       desc.Desc,
-		Method:     method,
-		AuthSchema: desc.AuthSchema,
-		Request:    req,
-		Response:   resp,
-		Versions:   append(g.versions, desc.Versions...),
-		Frontends:  append(g.frontends, desc.Frontends...),
+		Name:          desc.Name,
+		Path:          g.prefix + path + desc.query(),
+		Desc:          desc.Desc,
+		Method:        method,
+		SuccessStatus: desc.SuccessStatus,
+		AuthSchema:    desc.AuthSchema,
+		Request:       req,
+		Response:      resp,
+		Versions:      append(g.versions, desc.Versions...),
+		Frontends:     append(g.frontends, desc.Frontends...),
 	})
 }
 
@@ -458,7 +462,7 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、POSTのAPI�
 */
 func GwPOSTNoContent[Req any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return g.POSTTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
+	return g.POSTTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
 }
 
 /*
@@ -491,7 +495,7 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、PUTのAPI�
 */
 func GwPUTNoContent[Req any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return g.PUTTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
+	return g.PUTTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
 }
 
 /*
@@ -524,7 +528,7 @@ func(echo.Context, Req) errorの型をもつhandlerを受け取り、PATCHのAPI
 */
 func GwPATCHNoContent[Req any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
 	var req Req
-	return g.PATCHTyped(path, makeHandlerNoContent(h), desc, req, nil, m...)
+	return g.PATCHTyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), req, nil, m...)
 }
 
 /*
@@ -555,7 +559,7 @@ EwDELETENoContent のGroup版
 func(echo.Context, Req) errorの型をもつhandlerを受け取り、DELETEのAPIを生やす。RequestはJSONとしてBindする。Responseはstatusとして204を返す。
 */
 func GwDELETENoContent[Req any](g *GroupWrapper, path string, h func(ctx *echo.Context, req Req) error, desc Desc, m ...echo.MiddlewareFunc) echo.RouteInfo {
-	return g.DELETETyped(path, makeHandlerNoContent(h), desc, nil, m...)
+	return g.DELETETyped(path, makeHandlerNoContent(h), desc.withDefaultSuccessStatus(http.StatusNoContent), nil, m...)
 }
 
 type Desc struct {
@@ -565,6 +569,17 @@ type Desc struct {
 	AuthSchema AuthSchema
 	Versions   []string
 	Frontends  []string
+
+	// SuccessStatus は成功時に返す HTTP ステータスコード。OpenAPI の responses に反映される。
+	// 0 の場合は 200 とみなす（*NoContent 系のヘルパーでは 204 とみなす）。
+	SuccessStatus int
+}
+
+func (d Desc) withDefaultSuccessStatus(status int) Desc {
+	if d.SuccessStatus == 0 {
+		d.SuccessStatus = status
+	}
+	return d
 }
 
 func (d *Desc) query() string {
