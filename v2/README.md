@@ -160,3 +160,18 @@ endpoints.GwPOST[CreateArticleInput, CreateArticleOutput](articles, "/", func(c 
     // ...
 }, endpoints.Desc{Name: "createArticle", Desc: "記事を新規作成する"})
 ```
+
+## 成功時のステータスコード
+
+OpenAPI の `responses` に出力する成功時のステータスコードは `Desc.SuccessStatus` で指定できます。
+未指定（0）の場合は 200 になります。`*NoContent` 系の型付きハンドラでは未指定でも 204 になります。
+`Ew*` / `Gw*` の型付きハンドラでは、実行時のレスポンスもこの値で返します。`echo.HandlerFunc` を直接渡す場合（`ew.POST` など）は、ハンドラが返すステータスと揃えてください。
+
+```go
+// ハンドラが c.NoContent(http.StatusNoContent) を返す場合
+ew.POST("/users/:id/archive", userHandler.Archive, endpoints.Desc{
+    Name:          "archiveUser",
+    Desc:          "ユーザをアーカイブする",
+    SuccessStatus: http.StatusNoContent,
+})
+```

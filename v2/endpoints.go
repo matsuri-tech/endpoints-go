@@ -362,6 +362,11 @@ func buildOperation(api API, path string, parameters openapi3.Parameters, reques
 		}
 	}
 
+	successStatus := api.SuccessStatus
+	if successStatus == 0 {
+		successStatus = http.StatusOK
+	}
+
 	operation := openapi3.Operation{
 		Tags:        tags,
 		Summary:     api.Name,
@@ -370,7 +375,7 @@ func buildOperation(api API, path string, parameters openapi3.Parameters, reques
 		Parameters:  parameters,
 		RequestBody: nil,
 		Responses: openapi3.NewResponses(
-			openapi3.WithStatus(200, &openapi3.ResponseRef{
+			openapi3.WithStatus(successStatus, &openapi3.ResponseRef{
 				Ref: "",
 				Value: &openapi3.Response{
 					Description: &description,
@@ -607,6 +612,9 @@ type API struct {
 	AuthSchema AuthSchema
 	Request    any
 	Response   any
+
+	// 成功時の HTTP ステータスコード。0 の場合は 200 とみなす
+	SuccessStatus int
 
 	// バージョン番号 e.g. "v1", "v2"
 	// 指定がない場合、すべてのバージョンに含むものとみなす
