@@ -5,7 +5,7 @@
 
 ## Requirements
 
-- Go 1.25.0 以上
+- Go 1.26.0 以上
 - Echo v5
 
 ## Install
