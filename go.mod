@@ -3,7 +3,7 @@ module github.com/matsuri-tech/endpoints-go
 go 1.25.0
 
 require (
-	github.com/getkin/kin-openapi v0.144.0
+	github.com/getkin/kin-openapi v0.149.0
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.13.0
 	github.com/labstack/echo/v4 v4.15.3
@@ -28,7 +28,7 @@ require (
 	github.com/oasdiff/yaml3 v0.0.14 // indirect
 	github.com/perimeterx/marshmallow v1.1.5 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2 // indirect
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
