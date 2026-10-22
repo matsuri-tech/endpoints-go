@@ -9,7 +9,6 @@
   ],
   "reviewers": ["hrdtbs"],
   "prConcurrentLimit": 2,
-  "prCreation": "not-pending",
   "major": {
     "minimumReleaseAge": "7 days"
   },
