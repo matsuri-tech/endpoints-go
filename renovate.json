@@ -27,6 +27,14 @@
   "schedule": ["every weekday"],
   "packageRules": [
     {
+      "description": "major 以外を 1 本の PR にまとめ、月 1 回（毎月 1 日）作って automerge する。Renovate の実行間隔が数時間あるため時間帯は絞らない。group:allNonMajor の preset は groupSlug を持ち、groupName だけを上書きする後続のルールが同じブランチに衝突するため使わない。groupName を持つ後続のルールがあればそちらが優先される",
+      "matchPackageNames": ["*"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "all non-major dependencies",
+      "schedule": ["* * 1 * *"],
+      "automerge": true
+    },
+    {
       "matchDatasources": ["golang-version"],
       "matchUpdateTypes": ["patch"],
       "enabled": false
