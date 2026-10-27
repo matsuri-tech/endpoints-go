@@ -50,6 +50,12 @@
       "matchDepTypes": ["action"],
       "matchPackageNames": ["actions/{/,}**", "matsuri-tech/{/,}**"],
       "pinDigests": false
+    },
+    {
+      "groupName": "all patch dependencies",
+      "groupSlug": "all-patch",
+      "matchUpdateTypes": ["patch"],
+      "schedule": ["* * 1 * *"]
     }
   ]
 }
