@@ -23,5 +23,5 @@ jobs:
         with:
           # golangci-lint はビルドされた Go バージョンと go.mod の Go バージョンの
           # 組み合わせでエラーになるため、latest ではなく明示的に固定する。
-          version: v2.12.2
+          version: v2.15.0
           args: --config=.golangci.yml --timeout 1m
