@@ -7,7 +7,7 @@ require (
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.14.0
 	github.com/labstack/echo/v5 v5.4.1
-	github.com/stretchr/testify v1.11.1
+	github.com/stretchr/testify v1.12.1
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -28,6 +28,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	go.yaml.in/yaml/v4 v4.0.0-rc.2 // indirect
 	golang.org/x/text v0.40.0 // indirect
 )
