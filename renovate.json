@@ -47,7 +47,7 @@
       "schedule": ["after 12:00 on Monday"]
     },
     {
-      "matchDepTypes": ["action"],
+      "matchDepTypes": ["action", "workflow"],
       "matchPackageNames": ["actions/{/,}**", "matsuri-tech/{/,}**"],
       "pinDigests": false
     },
