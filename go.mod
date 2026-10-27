@@ -3,7 +3,7 @@ module github.com/matsuri-tech/endpoints-go
 go 1.26.0
 
 require (
-	github.com/getkin/kin-openapi v0.149.0
+	github.com/getkin/kin-openapi v0.151.0
 	github.com/iancoleman/orderedmap v0.3.0
 	github.com/invopop/jsonschema v0.14.0
 	github.com/labstack/echo/v4 v4.16.1
