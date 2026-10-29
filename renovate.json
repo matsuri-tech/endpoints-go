@@ -32,6 +32,13 @@
       "enabled": false
     },
     {
+      "description": "ルートモジュール (v0.x) は Echo v4 専用。Echo v5 対応は v2/ モジュールで行うため、メジャー更新は提案させない",
+      "matchFileNames": ["go.mod"],
+      "matchPackageNames": ["github.com/labstack/echo/v4"],
+      "matchUpdateTypes": ["major"],
+      "enabled": false
+    },
+    {
       "groupName": "High update frequency and low impact Node packages",
       "matchPackageNames": ["aws-cdk"],
       "schedule": ["after 12:00 on Monday"]
