@@ -10,18 +10,39 @@ permissions:
   contents: read
 jobs:
   golangci:
-    name: lint
+    name: lint (${{ matrix.working-directory }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # v2 は別モジュール(v2/go.mod)のため、ルートの ./... には含まれない
+        working-directory:
+          - .
+          - v2
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-go@v7.0.0
         with:
-          go-version-file: "./go.mod"
+          go-version-file: "${{ matrix.working-directory }}/go.mod"
           cache: true
+          cache-dependency-path: "${{ matrix.working-directory }}/go.sum"
       - name: golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           # golangci-lint はビルドされた Go バージョンと go.mod の Go バージョンの
           # 組み合わせでエラーになるため、latest ではなく明示的に固定する。
           version: v2.15.0
-          args: --config=.golangci.yml --timeout 1m
+          working-directory: ${{ matrix.working-directory }}
+          # --config の相対パスは working-directory 基準で解決されるため、絶対パスで渡す
+          args: --config=${{ github.workspace }}/.golangci.yml --timeout 1m
+
+  # ブランチプロテクションの required status checks は "lint" を参照しているため、
+  # matrix の結果をこのジョブに集約する。skipped は成功扱いになるので always() で必ず実行する。
+  lint:
+    needs: golangci
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        if: needs.golangci.result != 'success'
+        run: exit 1
